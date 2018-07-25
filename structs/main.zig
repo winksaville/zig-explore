@@ -27,6 +27,9 @@ pub fn main() u8 {
     var bufStack = Buffer4k.init();
     warn("bufStack.buffer[254]={}\n", bufStack.buffer[254]);
 
+    // It would be nice if you could defer allocator so:
+    //   var allocator = &std.heap.DirectAlloctor.init().allocator;
+    //   defer allocator.deinit();
     var direct_allocator = std.heap.DirectAllocator.init();
     defer direct_allocator.deinit();
     var allocator = &direct_allocator.allocator;
