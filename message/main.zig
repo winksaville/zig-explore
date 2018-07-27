@@ -1,7 +1,9 @@
 const std = @import("std");
-const warn = std.debug.warn;
+const bufPrint = std.fmt.bufPrint;
+const testExpectedActual = std.fmt.testExpectedActual;
+const assert = std.debug.assert;
 const mem = std.mem;
-const math = std.math;
+const Queue = std.atomic.Queue;
 
 fn Message(comptime BodyType: type) type {
     return struct {
@@ -55,15 +57,39 @@ const MyMessage = Message(struct {
     }
 });
 
-pub fn main() void {
-    var msg = MyMessage.init(123);
-    warn("msg={p}\n", &msg);
-    warn("msg={}\n", &msg);
-    //warn("cmd={} data.len={} data={}\n", msg.cmd, msg.body.data.len, msg.body.data[0..]);
+test "Message" {
+    var buf1: [256]u8 = undefined;
+    var buf2: [256]u8 = undefined;
 
-    const some_data = "a";
-    var copy_len = math.min(msg.body.data.len, some_data.len);
-    mem.copy(u8, msg.body.data[0..], some_data[0..copy_len]);
-    warn("msg={}\n", &msg);
-    //warn("msg.body.data.len={} msg.body.data={}\n", msg.body.data.len, msg.body.data[0..]);
+    var msg = MyMessage.init(123);
+    assert(msg.cmd == 123);
+    assert(mem.eql(u8, msg.body.data[0..], "ZZZ"));
+
+    try testExpectedActual(
+        try bufPrint(buf1[0..], "msg=Message(MyMessage)@{x}", @ptrToInt(&msg)),
+        try bufPrint(buf2[0..], "msg={p}", &msg));
+
+    try testExpectedActual(
+        "msg={cmd=123,data={5a,5a,5a,},}",
+        try bufPrint(buf2[0..], "msg={}", &msg));
+
+    msg.body.data[0] = 'a';
+    try testExpectedActual(
+        "msg={cmd=123,data={61,5a,5a,},}",
+        try bufPrint(buf2[0..], "msg={}", &msg));
+
+    // Create a queue
+    const MyQueue = Queue(MyMessage);
+    var q = MyQueue.init();
+
+    // Create a node
+    var node_0 = MyQueue.Node {
+        .data = msg,
+        .next = undefined,
+    };
+
+    // Add and remove it from the queue
+    q.put(&node_0);
+    var n = q.get() orelse { return; };
+    assert(n.data.cmd == 123);
 }
