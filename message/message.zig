@@ -1,9 +1,21 @@
 const std = @import("std");
 const bufPrint = std.fmt.bufPrint;
-const testExpectedActual = std.fmt.testExpectedActual;
 const assert = std.debug.assert;
+const warn = std.debug.warn;
 const mem = std.mem;
 const Queue = std.atomic.Queue;
+
+// From std/fmt/index.zig
+fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
+    if (mem.eql(u8, expected, actual)) return;
+
+    warn("\n====== expected this output: =========\n");
+    warn("{}", expected);
+    warn("\n======== instead found this: =========\n");
+    warn("{}", actual);
+    warn("\n======================================\n");
+    return error.TestFailed;
+}
 
 fn Message(comptime BodyType: type) type {
     return struct {
