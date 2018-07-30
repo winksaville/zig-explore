@@ -18,39 +18,37 @@ fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
     return error.TestFailed;
 }
 
-fn Message() type {
-    return struct {
-        const Self = this;
-        const BodyPtr = *@OpaqueType();
+const Message = struct {
+    const Self = this;
+    const BodyPtr = *@OpaqueType();
 
-        pub cmd: u64,
-        pub body_ptr: BodyPtr,
+    pub cmd: u64,
+    pub body_ptr: BodyPtr,
 
-        pub fn createOne(cmd: u64, body_ptr: BodyPtr) Self {
-            var self = Self {
-                .cmd = cmd,
-                .body_ptr = body_ptr,
-            };
-            return self;
-        }
+    pub fn createOne(cmd: u64, body_ptr: BodyPtr) Self {
+        var self = Self {
+            .cmd = cmd,
+            .body_ptr = body_ptr,
+        };
+        return self;
+    }
 
-        //fn createOneAligned(allocator: *Allocator, cmd: u64, comptime alignment: u29, size: usize) !Self {
-        //    var self: Self = undefined;
-        //    self.cmd = cmd;
-        //    try self.body_ptr = self.allocator.allignedAlloc(u8, alignment, self.body_size);
-        //    return self;
-        //}
+    //fn createOneAligned(allocator: *Allocator, cmd: u64, comptime alignment: u29, size: usize) !Self {
+    //    var self: Self = undefined;
+    //    self.cmd = cmd;
+    //    try self.body_ptr = self.allocator.allignedAlloc(u8, alignment, self.body_size);
+    //    return self;
+    //}
 
-        //pub fn format(self: *const Self,
-        //    comptime fmt: []const u8,
-        //    context: var,
-        //    comptime FmtError: type,
-        //    output: fn (@typeOf(context), []const u8) FmtError!void
-        //) FmtError!void {
-        //    try std.fmt.format(context, FmtError, output, "cmd={},", self.cmd);
-        //}
-    };
-}
+    //pub fn format(self: *const Self,
+    //    comptime fmt: []const u8,
+    //    context: var,
+    //    comptime FmtError: type,
+    //    output: fn (@typeOf(context), []const u8) FmtError!void
+    //) FmtError!void {
+    //    try std.fmt.format(context, FmtError, output, "cmd={},", self.cmd);
+    //}
+};
 
 fn MessageBody(comptime BodyType: type) type {
     return struct {
@@ -108,8 +106,8 @@ const MyMsgBody = struct {
 };
 
 test "Message" {
-    const MyMsg = Message();
-    var myMsg1 = MyMsg.createOne(123, @intToPtr(MyMsg.BodyPtr, 0));
+    //const MyMsg = Message();
+    var myMsg1 = Message.createOne(123, @intToPtr(Message.BodyPtr, 0));
 
     //var da = std.heap.DirectAllocator.init();
     //defer da.deinit();
@@ -120,7 +118,7 @@ test "Message" {
     warn("&myMsgBody={x}\n", @ptrToInt(&myMsgBody));
     warn("&myMsgBody={p}\n", &myMsgBody);
 
-    var myMsg2 = MyMsg.createOne(456, @ptrCast(MyMsg.BodyPtr, myMsgBody));
+    var myMsg2 = Message.createOne(456, @ptrCast(Message.BodyPtr, myMsgBody));
 
     var buf1: [256]u8 = undefined;
     var buf2: [256]u8 = undefined;
