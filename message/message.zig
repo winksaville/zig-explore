@@ -21,33 +21,32 @@ fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
 const Message = struct {
     const Self = this;
     const BodyPtr = *@OpaqueType();
+    const NullBodyPtr = @intToPtr(Message.BodyPtr, 0);
 
     pub cmd: u64,
     pub body_ptr: BodyPtr,
 
-    pub fn createOne(cmd: u64, body_ptr: BodyPtr) Self {
+    //pub fn init(cmd: u64, body_ptr: BodyPtr) Self {
+    pub fn init(cmd: u64, body_ptr: var) Self {
         var self = Self {
             .cmd = cmd,
-            .body_ptr = body_ptr,
+            .body_ptr = @ptrCast(Message.BodyPtr, body_ptr),
         };
         return self;
     }
 
-    //fn createOneAligned(allocator: *Allocator, cmd: u64, comptime alignment: u29, size: usize) !Self {
-    //    var self: Self = undefined;
-    //    self.cmd = cmd;
-    //    try self.body_ptr = self.allocator.allignedAlloc(u8, alignment, self.body_size);
-    //    return self;
-    //}
+    pub fn getBodyPtrAs(self: *const Self, comptime T: type) T {
+        return @ptrCast(T, self.body_ptr);
+    }
 
-    //pub fn format(self: *const Self,
-    //    comptime fmt: []const u8,
-    //    context: var,
-    //    comptime FmtError: type,
-    //    output: fn (@typeOf(context), []const u8) FmtError!void
-    //) FmtError!void {
-    //    try std.fmt.format(context, FmtError, output, "cmd={},", self.cmd);
-    //}
+    pub fn format(self: *const Self,
+        comptime fmt: []const u8,
+        context: var,
+        comptime FmtError: type,
+        output: fn (@typeOf(context), []const u8) FmtError!void
+    ) FmtError!void {
+        try std.fmt.format(context, FmtError, output, "cmd={},", self.cmd);
+    }
 };
 
 fn MessageBody(comptime BodyType: type) type {
@@ -63,19 +62,17 @@ fn MessageBody(comptime BodyType: type) type {
             return self;
         }
 
-        pub fn format(msg: *const Message,
+        pub fn format(self: *const Self,
             comptime fmt: []const u8,
             context: var,
             comptime FmtError: type,
             output: fn (@typeOf(context), []const u8) FmtError!void
         ) FmtError!void {
-            if (mem.eql(u8, fmt[0..], "p")) { return std.fmt.formatAddress(msg, fmt, context, FmtError, output); }
+            if (mem.eql(u8, fmt[0..], "p")) { return std.fmt.formatAddress(self, fmt, context, FmtError, output); }
             else {
                 try std.fmt.format(context, FmtError, output, "{{");
-                try msg.format("", context, FmtError, output);
-                if (msg.body_ptr == &self.body) {
-                    try BodyType.bodyFormat(self, fmt, context, FmtError, output);
-                }
+                try self.format("", context, FmtError, output);
+                try BodyType.bodyFormat(&self.body, fmt, context, FmtError, output);
                 try std.fmt.format(context, FmtError, output, "}}");
             }
         }
@@ -106,34 +103,33 @@ const MyMsgBody = struct {
 };
 
 test "Message" {
-    //const MyMsg = Message();
-    var myMsg1 = Message.createOne(123, @intToPtr(Message.BodyPtr, 0));
+    // Test NullBodyPtr works
+    var msg_with_no_body_ptr = Message.init(123, Message.NullBodyPtr);
+    assert(msg_with_no_body_ptr.cmd == 123);
+    assert(msg_with_no_body_ptr.body_ptr == Message.NullBodyPtr);
 
-    //var da = std.heap.DirectAllocator.init();
-    //defer da.deinit();
-    //var allocator = &da.allocator;
-
+    // Create a message body
     const MyMessageBody = MessageBody(MyMsgBody);
-    var myMsgBody = &MyMessageBody.init();
+    var myMsgBody = MyMessageBody.init();
     warn("&myMsgBody={x}\n", @ptrToInt(&myMsgBody));
     warn("&myMsgBody={p}\n", &myMsgBody);
 
-    var myMsg2 = Message.createOne(456, @ptrCast(Message.BodyPtr, myMsgBody));
-
-    var buf1: [256]u8 = undefined;
-    var buf2: [256]u8 = undefined;
-
-    assert(myMsg2.cmd == 456);
-    assert(@ptrToInt(myMsg2.body_ptr) == @ptrToInt(&myMsgBody.body.data[0]));
-    warn("&data={p}\n", &myMsgBody.body.data);
-    warn("data={p}\n", myMsgBody.body.data);
-    warn("data={}\n", myMsgBody.body.data);
+    // Create a message using myMsgBody
+    var myMsg1 = Message.init(456, &myMsgBody);
+    assert(myMsg1.cmd == 456);
+    assert(@ptrToInt(myMsg1.body_ptr) == @ptrToInt(&myMsgBody));
     assert(mem.eql(u8, myMsgBody.body.data[0..], "ZZZ"));
 
-    //warn(myMsg2.body_ptr.format("{}", &myMsg2));
-    //try testExpectedActual(
-    //    try bufPrint(buf1[0..], "msg=Message(MyMessage)@{x}", @ptrToInt(&msg)),
-    //    try bufPrint(buf2[0..], "msg={p}", &msg));
+    // Get the BodyPtr as *MyMessageBody
+    var myMsgBody2 = myMsg1.getBodyPtrAs(*MyMessageBody);
+    assert(mem.eql(u8, myMsgBody2.body.data[0..], "ZZZ"));
+
+    ////var buf1: [256]u8 = undefined;
+    ////var buf2: [256]u8 = undefined;
+    ////warn(myMsg2.body_ptr.format("{}", &myMsg2));
+    ////try testExpectedActual(
+    ////    try bufPrint(buf1[0..], "msg=Message(MyMessage)@{x}", @ptrToInt(&msg)),
+    ////    try bufPrint(buf2[0..], "msg={p}", &msg));
 
 //    try testExpectedActual(
 //        "msg={cmd=123,data={5a,5a,5a,},}",
