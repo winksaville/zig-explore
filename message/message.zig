@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const bufPrint = std.fmt.bufPrint;
 const assert = std.debug.assert;
 const warn = std.debug.warn;
@@ -17,91 +18,146 @@ fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
     return error.TestFailed;
 }
 
-fn Message(comptime BodyType: type) type {
+fn Message() type {
     return struct {
         const Self = this;
+        const BodyPtr = *@OpaqueType();
 
-        cmd: u64,
-        body: BodyType,
+        pub cmd: u64,
+        pub body_ptr: BodyPtr,
 
-        fn init(cmd: u64) Self {
-            var self: Self = undefined;
-            self.cmd = cmd;
-            BodyType.bodyInit(&self);
+        pub fn createOne(cmd: u64, body_ptr: BodyPtr) Self {
+            var self = Self {
+                .cmd = cmd,
+                .body_ptr = body_ptr,
+            };
             return self;
         }
 
-        pub fn format(self: *const Self,
+        //fn createOneAligned(allocator: *Allocator, cmd: u64, comptime alignment: u29, size: usize) !Self {
+        //    var self: Self = undefined;
+        //    self.cmd = cmd;
+        //    try self.body_ptr = self.allocator.allignedAlloc(u8, alignment, self.body_size);
+        //    return self;
+        //}
+
+        //pub fn format(self: *const Self,
+        //    comptime fmt: []const u8,
+        //    context: var,
+        //    comptime FmtError: type,
+        //    output: fn (@typeOf(context), []const u8) FmtError!void
+        //) FmtError!void {
+        //    try std.fmt.format(context, FmtError, output, "cmd={},", self.cmd);
+        //}
+    };
+}
+
+fn MessageBody(comptime BodyType: type) type {
+    return struct {
+        const Self = this;
+
+        pub body: BodyType,
+
+        pub fn init() Self {
+            var self: Self = undefined;
+            BodyType.init(&self.body);
+            warn("MessageBody.init: &self={x} &self.body={x}\n", @ptrToInt(&self), @ptrToInt(&self.body));
+            return self;
+        }
+
+        pub fn format(msg: *const Message,
             comptime fmt: []const u8,
             context: var,
             comptime FmtError: type,
             output: fn (@typeOf(context), []const u8) FmtError!void
         ) FmtError!void {
-            if (mem.eql(u8, fmt[0..], "p")) { return std.fmt.formatAddress(self, fmt, context, FmtError, output); }
+            if (mem.eql(u8, fmt[0..], "p")) { return std.fmt.formatAddress(msg, fmt, context, FmtError, output); }
             else {
                 try std.fmt.format(context, FmtError, output, "{{");
-                try std.fmt.format(context, FmtError, output, "cmd={},", self.cmd);
-                try BodyType.bodyFormat(self, fmt, context, FmtError, output);
+                try msg.format("", context, FmtError, output);
+                if (msg.body_ptr == &self.body) {
+                    try BodyType.bodyFormat(self, fmt, context, FmtError, output);
+                }
                 try std.fmt.format(context, FmtError, output, "}}");
             }
         }
     };
 }
 
-const MyMessage = Message(struct {
+const MyMsgBody = struct {
+    const Self = this;
     data: [3]u8,
 
-    fn bodyInit(m: *MyMessage) void {
-        mem.set(u8, m.body.data[0..m.body.data.len], 'Z');
+    fn init(self: *Self) void {
+        mem.set(u8, self.data[0..], 'Z');
+        warn("MyMsgBody.init: set data to 'Z' &self={p} &self.data[0]={p} self.data[0]={}\n", &self, &self.data[0], self.data[0]);
     }
 
-    pub fn bodyFormat(m: *const MyMessage,
+    pub fn bodyFormat(m: *const MyMsgBody,
         comptime fmt: []const u8,
         context: var,
         comptime FmtError: type,
         output: fn (@typeOf(context), []const u8) FmtError!void
     ) FmtError!void {
         try std.fmt.format(context, FmtError, output, "data={{");
-        for (m.body.data) |v| {
+        for (m.data) |v| {
             try std.fmt.format(context, FmtError, output, "{x},", v);
         }
         try std.fmt.format(context, FmtError, output, "}},");
     }
-});
+};
 
 test "Message" {
+    const MyMsg = Message();
+    var myMsg1 = MyMsg.createOne(123, @intToPtr(MyMsg.BodyPtr, 0));
+
+    //var da = std.heap.DirectAllocator.init();
+    //defer da.deinit();
+    //var allocator = &da.allocator;
+
+    const MyMessageBody = MessageBody(MyMsgBody);
+    var myMsgBody = &MyMessageBody.init();
+    warn("&myMsgBody={x}\n", @ptrToInt(&myMsgBody));
+    warn("&myMsgBody={p}\n", &myMsgBody);
+
+    var myMsg2 = MyMsg.createOne(456, @ptrCast(MyMsg.BodyPtr, myMsgBody));
+
     var buf1: [256]u8 = undefined;
     var buf2: [256]u8 = undefined;
 
-    var msg = MyMessage.init(123);
-    assert(msg.cmd == 123);
-    assert(mem.eql(u8, msg.body.data[0..], "ZZZ"));
+    assert(myMsg2.cmd == 456);
+    assert(@ptrToInt(myMsg2.body_ptr) == @ptrToInt(&myMsgBody.body.data[0]));
+    warn("&data={p}\n", &myMsgBody.body.data);
+    warn("data={p}\n", myMsgBody.body.data);
+    warn("data={}\n", myMsgBody.body.data);
+    assert(mem.eql(u8, myMsgBody.body.data[0..], "ZZZ"));
 
-    try testExpectedActual(
-        try bufPrint(buf1[0..], "msg=Message(MyMessage)@{x}", @ptrToInt(&msg)),
-        try bufPrint(buf2[0..], "msg={p}", &msg));
+    //warn(myMsg2.body_ptr.format("{}", &myMsg2));
+    //try testExpectedActual(
+    //    try bufPrint(buf1[0..], "msg=Message(MyMessage)@{x}", @ptrToInt(&msg)),
+    //    try bufPrint(buf2[0..], "msg={p}", &msg));
 
-    try testExpectedActual(
-        "msg={cmd=123,data={5a,5a,5a,},}",
-        try bufPrint(buf2[0..], "msg={}", &msg));
-
-    msg.body.data[0] = 'a';
-    try testExpectedActual(
-        "msg={cmd=123,data={61,5a,5a,},}",
-        try bufPrint(buf2[0..], "msg={}", &msg));
-
-    // Create a queue
-    const MyQueue = Queue(MyMessage);
-    var q = MyQueue.init();
-
-    // Create a node
-    var node_0 = MyQueue.Node {
-        .data = msg,
-        .next = undefined,
-    };
-
-    // Add and remove it from the queue
-    q.put(&node_0);
-    var n = q.get() orelse { return; };
-    assert(n.data.cmd == 123);
+//    try testExpectedActual(
+//        "msg={cmd=123,data={5a,5a,5a,},}",
+//        try bufPrint(buf2[0..], "msg={}", &msg));
+//
+//    msg.body.data[0] = 'a';
+//    try testExpectedActual(
+//        "msg={cmd=123,data={61,5a,5a,},}",
+//        try bufPrint(buf2[0..], "msg={}", &msg));
+//
+//    // Create a queue
+//    const MyQueue = Queue(MyMessage);
+//    var q = MyQueue.init();
+//
+//    // Create a node
+//    var node_0 = MyQueue.Node {
+//        .data = msg,
+//        .next = undefined,
+//    };
+//
+//    // Add and remove it from the queue
+//    q.put(&node_0);
+//    var n = q.get() orelse { return; };
+//    assert(n.data.cmd == 123);
 }
