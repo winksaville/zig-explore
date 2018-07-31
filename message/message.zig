@@ -54,6 +54,7 @@ fn MessageBody(comptime BodyType: type) type {
         const Self = this;
 
         pub body: BodyType,
+        pub msg: ?*Message,
 
         pub fn init() Self {
             var self: Self = undefined;
@@ -70,10 +71,16 @@ fn MessageBody(comptime BodyType: type) type {
         ) FmtError!void {
             if (mem.eql(u8, fmt[0..], "p")) { return std.fmt.formatAddress(self, fmt, context, FmtError, output); }
             else {
+                if (self.msg) |msg| {
+                    try std.fmt.format(context, FmtError, output, "{{");
+                    try msg.format("", context, FmtError, output);
+                }
                 try std.fmt.format(context, FmtError, output, "{{");
-                try self.format("", context, FmtError, output);
-                try BodyType.bodyFormat(&self.body, fmt, context, FmtError, output);
+                try BodyType.format(&self.body, fmt, context, FmtError, output);
                 try std.fmt.format(context, FmtError, output, "}}");
+                if (self.msg) |msg| {
+                    try std.fmt.format(context, FmtError, output, "}}");
+                }
             }
         }
     };
@@ -88,17 +95,15 @@ const MyMsgBody = struct {
         warn("MyMsgBody.init: set data to 'Z' &self={p} &self.data[0]={p} self.data[0]={}\n", &self, &self.data[0], self.data[0]);
     }
 
-    pub fn bodyFormat(m: *const MyMsgBody,
+    pub fn format(m: *const MyMsgBody,
         comptime fmt: []const u8,
         context: var,
         comptime FmtError: type,
         output: fn (@typeOf(context), []const u8) FmtError!void
     ) FmtError!void {
-        try std.fmt.format(context, FmtError, output, "data={{");
         for (m.data) |v| {
             try std.fmt.format(context, FmtError, output, "{x},", v);
         }
-        try std.fmt.format(context, FmtError, output, "}},");
     }
 };
 
@@ -113,9 +118,12 @@ test "Message" {
     var myMsgBody = MyMessageBody.init();
     warn("&myMsgBody={x}\n", @ptrToInt(&myMsgBody));
     warn("&myMsgBody={p}\n", &myMsgBody);
+    warn("&myMsgBody={}\n", &myMsgBody);
 
     // Create a message using myMsgBody
     var myMsg1 = Message.init(456, &myMsgBody);
+    myMsgBody.msg = &myMsg1;
+    warn("&myMsgBody={}\n", &myMsgBody);
     assert(myMsg1.cmd == 456);
     assert(@ptrToInt(myMsg1.body_ptr) == @ptrToInt(&myMsgBody));
     assert(mem.eql(u8, myMsgBody.body.data[0..], "ZZZ"));
