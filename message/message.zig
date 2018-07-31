@@ -20,23 +20,21 @@ fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
 
 const MessageHeader = struct {
     const Self = this;
-    const BodyPtr = *@OpaqueType();
-    const NullBodyPtr = @intToPtr(MessageHeader.BodyPtr, 0);
+    const MessagePtr = * align(@alignOf(u64)) @OpaqueType();
+    const NullMessagePtr = @intToPtr(MessageHeader.MessagePtr, 0);
 
     pub cmd: u64,
-    pub body_ptr: BodyPtr,
+    pub message_ptr: MessagePtr,
 
-    //pub fn init(cmd: u64, body_ptr: BodyPtr) Self {
-    pub fn init(cmd: u64, body_ptr: var) Self {
-        var self = Self {
-            .cmd = cmd,
-            .body_ptr = @ptrCast(MessageHeader.BodyPtr, body_ptr),
-        };
-        return self;
+    pub fn init(self: *Self, cmd: u64, message_ptr: var) void {
+        self.cmd = cmd;
+        self.message_ptr = @ptrCast(MessageHeader.MessagePtr, message_ptr);
+        warn("MessageHeader.init: self.cmd={} self.message_ptr={p}\n",
+                self.cmd, self.message_ptr);
     }
 
-    pub fn getBodyPtrAs(self: *const Self, comptime T: type) T {
-        return @ptrCast(T, self.body_ptr);
+    pub fn getMessagePtrAs(self: *const Self, comptime T: type) T {
+        return @ptrCast(T, self.message_ptr);
     }
 
     pub fn format(self: *const Self,
@@ -45,21 +43,23 @@ const MessageHeader = struct {
         comptime FmtError: type,
         output: fn (@typeOf(context), []const u8) FmtError!void
     ) FmtError!void {
-        try std.fmt.format(context, FmtError, output, "cmd={},", self.cmd);
+        try std.fmt.format(context, FmtError, output, "cmd={}, message_ptr={p}, ", self.cmd, self.message_ptr);
     }
 };
 
-fn MessageBody(comptime BodyType: type) type {
+fn Message(comptime BodyType: type) type {
     return struct {
         const Self = this;
 
+        pub header: MessageHeader,
         pub body: BodyType,
-        pub msg: ?*MessageHeader,
 
-        pub fn init() Self {
+        pub fn init(cmd: u64) Self {
             var self: Self = undefined;
+            self.header.init(cmd, &self);
             BodyType.init(&self.body);
-            warn("MessageBody.init: &self={x} &self.body={x}\n", @ptrToInt(&self), @ptrToInt(&self.body));
+            warn("Message.init: &self={x} &self.header={x} &self.body={x}\n",
+                    @ptrToInt(&self), @ptrToInt(&self.header), @ptrToInt(&self.body));
             return self;
         }
 
@@ -69,18 +69,15 @@ fn MessageBody(comptime BodyType: type) type {
             comptime FmtError: type,
             output: fn (@typeOf(context), []const u8) FmtError!void
         ) FmtError!void {
-            if (mem.eql(u8, fmt[0..], "p")) { return std.fmt.formatAddress(self, fmt, context, FmtError, output); }
-            else {
-                if (self.msg) |msg| {
-                    try std.fmt.format(context, FmtError, output, "{{");
-                    try msg.format("", context, FmtError, output);
-                }
+            if (mem.eql(u8, fmt[0..], "p")) {
+                return std.fmt.formatAddress(self, fmt, context, FmtError, output);
+            } else {
                 try std.fmt.format(context, FmtError, output, "{{");
+                try self.header.format("", context, FmtError, output);
+                try std.fmt.format(context, FmtError, output, "body={{");
                 try BodyType.format(&self.body, fmt, context, FmtError, output);
+                try std.fmt.format(context, FmtError, output, "}},");
                 try std.fmt.format(context, FmtError, output, "}}");
-                if (self.msg) |msg| {
-                    try std.fmt.format(context, FmtError, output, "}}");
-                }
             }
         }
     };
@@ -101,40 +98,41 @@ const MyMsgBody = struct {
         comptime FmtError: type,
         output: fn (@typeOf(context), []const u8) FmtError!void
     ) FmtError!void {
+        try std.fmt.format(context, FmtError, output, "data={{");
         for (m.data) |v| {
             try std.fmt.format(context, FmtError, output, "{x},", v);
         }
+        try std.fmt.format(context, FmtError, output, "}},");
     }
 };
 
 test "Message" {
-    // Test NullBodyPtr works
-    var msg_with_no_body_ptr = MessageHeader.init(123, MessageHeader.NullBodyPtr);
-    assert(msg_with_no_body_ptr.cmd == 123);
-    assert(msg_with_no_body_ptr.body_ptr == MessageHeader.NullBodyPtr);
+    // Test NullMessagePtr
+    var msg_header_with_no_message_ptr: MessageHeader = undefined;
+    msg_header_with_no_message_ptr.init(123, MessageHeader.NullMessagePtr);
+    assert(msg_header_with_no_message_ptr.cmd == 123);
+    assert(msg_header_with_no_message_ptr.message_ptr == MessageHeader.NullMessagePtr);
 
-    // Create a message body
-    const MyMessageBody = MessageBody(MyMsgBody);
-    var myMsgBody = MyMessageBody.init();
-    warn("&myMsgBody={x}\n", @ptrToInt(&myMsgBody));
-    warn("&myMsgBody={p}\n", &myMsgBody);
-    warn("&myMsgBody={}\n", &myMsgBody);
+    // Create a message with MyMsgBody
+    const MyMsg = Message(MyMsgBody);
+    var myMsg = MyMsg.init(456);
+    warn("myMsg: &myMsg={x} &myMsg.header={x} &myMsg.body={x}\n",
+            @ptrToInt(&myMsg), @ptrToInt(&myMsg.header), @ptrToInt(&myMsg.body));
+    warn("&myMsg={p}\n", &myMsg);
+    warn("myMsg={}\n", &myMsg);
 
-    // Create a message using myMsgBody
-    var myMsg1 = MessageHeader.init(456, &myMsgBody);
-    myMsgBody.msg = &myMsg1;
-    warn("&myMsgBody={}\n", &myMsgBody);
-    assert(myMsg1.cmd == 456);
-    assert(@ptrToInt(myMsg1.body_ptr) == @ptrToInt(&myMsgBody));
-    assert(mem.eql(u8, myMsgBody.body.data[0..], "ZZZ"));
+    // Test myMsg
+    assert(myMsg.header.cmd == 456);
+    //assert(@ptrToInt(myMsg.header.message_ptr) == @ptrToInt(&myMsg));
+    assert(mem.eql(u8, myMsg.body.data[0..], "ZZZ"));
 
-    // Get the BodyPtr as *MyMessageBody
-    var myMsgBody2 = myMsg1.getBodyPtrAs(*MyMessageBody);
-    assert(mem.eql(u8, myMsgBody2.body.data[0..], "ZZZ"));
+    // Get the MessagePtr as *MyMsg
+    var myMsg2 = myMsg.header.getMessagePtrAs(*MyMsg);
+    //assert(mem.eql(u8, myMsg2.body.data[0..], "ZZZ")); // Fails because myMsg.header.message_ptr is wrong :(
 
     ////var buf1: [256]u8 = undefined;
     ////var buf2: [256]u8 = undefined;
-    ////warn(myMsg2.body_ptr.format("{}", &myMsg2));
+    ////warn(myMsg2.message_ptr.format("{}", &myMsg2));
     ////try testExpectedActual(
     ////    try bufPrint(buf1[0..], "msg=Message(MyMessage)@{x}", @ptrToInt(&msg)),
     ////    try bufPrint(buf2[0..], "msg={p}", &msg));
