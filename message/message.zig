@@ -18,10 +18,10 @@ fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
     return error.TestFailed;
 }
 
-const Message = struct {
+const MessageHeader = struct {
     const Self = this;
     const BodyPtr = *@OpaqueType();
-    const NullBodyPtr = @intToPtr(Message.BodyPtr, 0);
+    const NullBodyPtr = @intToPtr(MessageHeader.BodyPtr, 0);
 
     pub cmd: u64,
     pub body_ptr: BodyPtr,
@@ -30,7 +30,7 @@ const Message = struct {
     pub fn init(cmd: u64, body_ptr: var) Self {
         var self = Self {
             .cmd = cmd,
-            .body_ptr = @ptrCast(Message.BodyPtr, body_ptr),
+            .body_ptr = @ptrCast(MessageHeader.BodyPtr, body_ptr),
         };
         return self;
     }
@@ -54,7 +54,7 @@ fn MessageBody(comptime BodyType: type) type {
         const Self = this;
 
         pub body: BodyType,
-        pub msg: ?*Message,
+        pub msg: ?*MessageHeader,
 
         pub fn init() Self {
             var self: Self = undefined;
@@ -109,9 +109,9 @@ const MyMsgBody = struct {
 
 test "Message" {
     // Test NullBodyPtr works
-    var msg_with_no_body_ptr = Message.init(123, Message.NullBodyPtr);
+    var msg_with_no_body_ptr = MessageHeader.init(123, MessageHeader.NullBodyPtr);
     assert(msg_with_no_body_ptr.cmd == 123);
-    assert(msg_with_no_body_ptr.body_ptr == Message.NullBodyPtr);
+    assert(msg_with_no_body_ptr.body_ptr == MessageHeader.NullBodyPtr);
 
     // Create a message body
     const MyMessageBody = MessageBody(MyMsgBody);
@@ -121,7 +121,7 @@ test "Message" {
     warn("&myMsgBody={}\n", &myMsgBody);
 
     // Create a message using myMsgBody
-    var myMsg1 = Message.init(456, &myMsgBody);
+    var myMsg1 = MessageHeader.init(456, &myMsgBody);
     myMsgBody.msg = &myMsg1;
     warn("&myMsgBody={}\n", &myMsgBody);
     assert(myMsg1.cmd == 456);
