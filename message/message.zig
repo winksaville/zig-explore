@@ -29,7 +29,7 @@ const MessageHeader = struct {
     pub fn init(self: *Self, cmd: u64, message_ptr: var) void {
         self.cmd = cmd;
         self.message_ptr = @ptrCast(MessageHeader.MessagePtr, message_ptr);
-        warn("MessageHeader.init: self.cmd={} self.message_ptr={p}\n",
+        warn("MessageHeader.init: self.cmd={} self.message_ptr={*}\n",
                 self.cmd, self.message_ptr);
     }
 
@@ -43,7 +43,7 @@ const MessageHeader = struct {
         comptime FmtError: type,
         output: fn (@typeOf(context), []const u8) FmtError!void
     ) FmtError!void {
-        try std.fmt.format(context, FmtError, output, "cmd={}, message_ptr={p}, ", self.cmd, self.message_ptr);
+        try std.fmt.format(context, FmtError, output, "cmd={}, message_ptr={*}, ", self.cmd, self.message_ptr);
     }
 };
 
@@ -58,8 +58,8 @@ fn Message(comptime BodyType: type) type {
             var self: Self = undefined;
             self.header.init(cmd, &self);
             BodyType.init(&self.body);
-            warn("Message.init: &self={x} &self.header={x} &self.body={x}\n",
-                    @ptrToInt(&self), @ptrToInt(&self.header), @ptrToInt(&self.body));
+            warn("Message.init: &self={*} &self.header={*} &self.body={*}\n",
+                    &self, &self.header, &self.body);
             return self;
         }
 
@@ -69,16 +69,12 @@ fn Message(comptime BodyType: type) type {
             comptime FmtError: type,
             output: fn (@typeOf(context), []const u8) FmtError!void
         ) FmtError!void {
-            if (mem.eql(u8, fmt[0..], "p")) {
-                return std.fmt.formatAddress(self, fmt, context, FmtError, output);
-            } else {
-                try std.fmt.format(context, FmtError, output, "{{");
-                try self.header.format("", context, FmtError, output);
-                try std.fmt.format(context, FmtError, output, "body={{");
-                try BodyType.format(&self.body, fmt, context, FmtError, output);
-                try std.fmt.format(context, FmtError, output, "}},");
-                try std.fmt.format(context, FmtError, output, "}}");
-            }
+            try std.fmt.format(context, FmtError, output, "{{");
+            try self.header.format("", context, FmtError, output);
+            try std.fmt.format(context, FmtError, output, "body={{");
+            try BodyType.format(&self.body, fmt, context, FmtError, output);
+            try std.fmt.format(context, FmtError, output, "}},");
+            try std.fmt.format(context, FmtError, output, "}}");
         }
     };
 }
@@ -89,7 +85,7 @@ const MyMsgBody = struct {
 
     fn init(self: *Self) void {
         mem.set(u8, self.data[0..], 'Z');
-        warn("MyMsgBody.init: set data to 'Z' &self={p} &self.data[0]={p} self.data[0]={}\n", &self, &self.data[0], self.data[0]);
+        warn("MyMsgBody.init: set data to 'Z' &self={*} &self.data[0]={*} self.data[0]={}\n", self, &self.data[0], self.data[0]);
     }
 
     pub fn format(m: *const MyMsgBody,
@@ -100,7 +96,11 @@ const MyMsgBody = struct {
     ) FmtError!void {
         try std.fmt.format(context, FmtError, output, "data={{");
         for (m.data) |v| {
-            try std.fmt.format(context, FmtError, output, "{x},", v);
+            if ((v >= ' ') and (v <= 0x7f)) {
+                try std.fmt.format(context, FmtError, output, "{c}," , v);
+            } else {
+                try std.fmt.format(context, FmtError, output, "{x},", v);
+            }
         }
         try std.fmt.format(context, FmtError, output, "}},");
     }
@@ -116,9 +116,8 @@ test "Message" {
     // Create a message with MyMsgBody
     const MyMsg = Message(MyMsgBody);
     var myMsg = MyMsg.init(456);
-    warn("myMsg: &myMsg={x} &myMsg.header={x} &myMsg.body={x}\n",
-            @ptrToInt(&myMsg), @ptrToInt(&myMsg.header), @ptrToInt(&myMsg.body));
-    warn("&myMsg={p}\n", &myMsg);
+    warn("myMsg: &myMsg={*} &myMsg.header={*} &myMsg.body={*}\n", &myMsg, &myMsg.header, &myMsg.body);
+    warn("&myMsg={*}\n", &myMsg);
     warn("myMsg={}\n", &myMsg);
 
     // Test myMsg
@@ -135,7 +134,7 @@ test "Message" {
     ////warn(myMsg2.message_ptr.format("{}", &myMsg2));
     ////try testExpectedActual(
     ////    try bufPrint(buf1[0..], "msg=Message(MyMessage)@{x}", @ptrToInt(&msg)),
-    ////    try bufPrint(buf2[0..], "msg={p}", &msg));
+    ////    try bufPrint(buf2[0..], "msg={*}", &msg));
 
 //    try testExpectedActual(
 //        "msg={cmd=123,data={5a,5a,5a,},}",
