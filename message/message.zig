@@ -20,21 +20,20 @@ fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
 
 const MessageHeader = struct {
     const Self = this;
-    const MessagePtr = * align(@alignOf(u64)) @OpaqueType();
-    const NullMessagePtr = @intToPtr(MessageHeader.MessagePtr, 0);
 
     pub cmd: u64,
-    pub message_ptr: MessagePtr,
+    pub message_offset: usize,
 
     pub fn init(self: *Self, cmd: u64, message_ptr: var) void {
         self.cmd = cmd;
-        self.message_ptr = @ptrCast(MessageHeader.MessagePtr, message_ptr);
-        warn("MessageHeader.init: self.cmd={} self.message_ptr={*}\n",
-                self.cmd, self.message_ptr);
+        self.message_offset = @ptrToInt(&self.message_offset) - @ptrToInt(message_ptr);
+        warn("MessageHeader.init: cmd={} message_ptr={*}, &self.message_offset={*} self.message_offset={}\n", self.cmd, message_ptr, &self.message_offset, self.message_offset);
     }
 
     pub fn getMessagePtrAs(self: *const Self, comptime T: type) T {
-        return @ptrCast(T, self.message_ptr);
+        var message_ptr = @intToPtr(T, @ptrToInt(&self.message_offset) - self.message_offset);
+        warn("MessageHeader.getMessagePtrAs: cmd={} message_ptr={*}, &self.message_offset={*} self.message_offset={}\n", self.cmd, message_ptr, &self.message_offset, self.message_offset);
+        return @ptrCast(T, message_ptr);
     }
 
     pub fn format(self: *const Self,
@@ -43,7 +42,7 @@ const MessageHeader = struct {
         comptime FmtError: type,
         output: fn (@typeOf(context), []const u8) FmtError!void
     ) FmtError!void {
-        try std.fmt.format(context, FmtError, output, "cmd={}, message_ptr={*}, ", self.cmd, self.message_ptr);
+        try std.fmt.format(context, FmtError, output, "cmd={}, message_offset={}, ", self.cmd, self.message_offset);
     }
 };
 
@@ -85,7 +84,7 @@ const MyMsgBody = struct {
 
     fn init(self: *Self) void {
         mem.set(u8, self.data[0..], 'Z');
-        warn("MyMsgBody.init: set data to 'Z' &self={*} &self.data[0]={*} self.data[0]={}\n", self, &self.data[0], self.data[0]);
+        //warn("MyMsgBody.init: set data to 'Z' &self={*} &self.data[0]={*} self.data[0]={}\n", self, &self.data[0], self.data[0]);
     }
 
     pub fn format(m: *const MyMsgBody,
@@ -107,27 +106,21 @@ const MyMsgBody = struct {
 };
 
 test "Message" {
-    // Test NullMessagePtr
-    var msg_header_with_no_message_ptr: MessageHeader = undefined;
-    msg_header_with_no_message_ptr.init(123, MessageHeader.NullMessagePtr);
-    assert(msg_header_with_no_message_ptr.cmd == 123);
-    assert(msg_header_with_no_message_ptr.message_ptr == MessageHeader.NullMessagePtr);
-
     // Create a message with MyMsgBody
     const MyMsg = Message(MyMsgBody);
     var myMsg = MyMsg.init(456);
     warn("myMsg: &myMsg={*} &myMsg.header={*} &myMsg.body={*}\n", &myMsg, &myMsg.header, &myMsg.body);
-    warn("&myMsg={*}\n", &myMsg);
     warn("myMsg={}\n", &myMsg);
 
     // Test myMsg
     assert(myMsg.header.cmd == 456);
-    //assert(@ptrToInt(myMsg.header.message_ptr) == @ptrToInt(&myMsg));
+    assert(myMsg.header.message_offset == @ptrToInt(&myMsg.header.message_offset) - @ptrToInt(&myMsg)); 
     assert(mem.eql(u8, myMsg.body.data[0..], "ZZZ"));
 
     // Get the MessagePtr as *MyMsg
     var myMsg2 = myMsg.header.getMessagePtrAs(*MyMsg);
-    //assert(mem.eql(u8, myMsg2.body.data[0..], "ZZZ")); // Fails because myMsg.header.message_ptr is wrong :(
+    assert(@ptrToInt(myMsg2) == @ptrToInt(&myMsg));
+    assert(mem.eql(u8, myMsg2.body.data[0..], "ZZZ"));
 
     ////var buf1: [256]u8 = undefined;
     ////var buf2: [256]u8 = undefined;
