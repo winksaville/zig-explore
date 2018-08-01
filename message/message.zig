@@ -10,7 +10,7 @@ const mem = std.mem;
 const Queue = std.atomic.Queue;
 
 fn Message(comptime BodyType: type) type {
-    return struct {
+    return packed struct {
         const Self = this;
 
         pub header: MessageHeader,
@@ -39,11 +39,11 @@ fn Message(comptime BodyType: type) type {
     };
 }
 
-const MessageHeader = struct {
+const MessageHeader = packed struct {
     const Self = this;
 
-    pub cmd: u64,
     pub message_offset: usize,
+    pub cmd: u64,
 
     pub fn init(self: *Self, cmd: u64, message_ptr: var) void {
         self.cmd = cmd;
@@ -65,7 +65,7 @@ const MessageHeader = struct {
     }
 };
 
-const MyMsgBody = struct {
+const MyMsgBody = packed struct {
     const Self = this;
     data: [3]u8,
 
@@ -110,12 +110,12 @@ test "Message" {
     var buf2: [256]u8 = undefined;
 
     try testExpectedActual(
-        "pMsg={cmd=123, message_offset=8, body={data={Z,Z,Z,},},}",
+        "pMsg={cmd=123, message_offset=0, body={data={Z,Z,Z,},},}",
         try bufPrint(buf2[0..], "pMsg={}", pMsg));
 
     pMsg.body.data[0] = 'a';
     try testExpectedActual(
-        "pMsg={cmd=123, message_offset=8, body={data={a,Z,Z,},},}",
+        "pMsg={cmd=123, message_offset=0, body={data={a,Z,Z,},},}",
         try bufPrint(buf2[0..], "pMsg={}", pMsg));
 
     // Create a queue of MessageHeader pointers
@@ -137,7 +137,7 @@ test "Message" {
 
     warn(" pMsg={}\n", pMsg);
     try testExpectedActual(
-        "pMsg={cmd=123, message_offset=8, body={data={a,Z,Z,},},}",
+        "pMsg={cmd=123, message_offset=0, body={data={a,Z,Z,},},}",
         try bufPrint(buf2[0..], "pMsg={}", pMsg));
 }
 
