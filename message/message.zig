@@ -131,18 +131,25 @@ test "Message" {
         "pMsg={cmd=123, message_offset=8, body={data={a,Z,Z,},},}",
         try bufPrint(buf2[0..], "pMsg={}", pMsg));
 
-//    // Create a queue
-//    const MyQueue = Queue(MyMessage);
-//    var q = MyQueue.init();
-//
-//    // Create a node
-//    var node_0 = MyQueue.Node {
-//        .data = msg,
-//        .next = undefined,
-//    };
-//
-//    // Add and remove it from the queue
-//    q.put(&node_0);
-//    var n = q.get() orelse { return; };
-//    assert(n.data.cmd == 123);
+    // Create a queue of MessageHeader pointers
+    const MyQueue = Queue(*MessageHeader);
+    var q = MyQueue.init();
+
+    // Create a node with a pointer to a message header
+    var node_0 = MyQueue.Node {
+        .data = &myMsg.header,
+        .next = undefined,
+    };
+
+    // Add and remove it from the queue and verify
+    q.put(&node_0);
+    var n = q.get() orelse { return error.QGetFailed; };
+    pMsg = n.data.getMessagePtrAs(*MyMsg);
+    assert(pMsg.header.cmd == 123);
+    assert(mem.eql(u8, pMsg.body.data[0..], "aZZ"));
+
+    warn(" pMsg={}\n", pMsg);
+    try testExpectedActual(
+        "pMsg={cmd=123, message_offset=8, body={data={a,Z,Z,},},}",
+        try bufPrint(buf2[0..], "pMsg={}", pMsg));
 }
