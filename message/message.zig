@@ -27,12 +27,12 @@ const MessageHeader = struct {
     pub fn init(self: *Self, cmd: u64, message_ptr: var) void {
         self.cmd = cmd;
         self.message_offset = @ptrToInt(&self.message_offset) - @ptrToInt(message_ptr);
-        warn("MessageHeader.init: cmd={} message_ptr={*}, &self.message_offset={*} self.message_offset={}\n", self.cmd, message_ptr, &self.message_offset, self.message_offset);
+        //warn("MessageHeader.init: cmd={} message_ptr={*}, &self.message_offset={*} self.message_offset={}\n", self.cmd, message_ptr, &self.message_offset, self.message_offset);
     }
 
     pub fn getMessagePtrAs(self: *const Self, comptime T: type) T {
         var message_ptr = @intToPtr(T, @ptrToInt(&self.message_offset) - self.message_offset);
-        warn("MessageHeader.getMessagePtrAs: cmd={} message_ptr={*}, &self.message_offset={*} self.message_offset={}\n", self.cmd, message_ptr, &self.message_offset, self.message_offset);
+        //warn("MessageHeader.getMessagePtrAs: cmd={} message_ptr={*}, &self.message_offset={*} self.message_offset={}\n", self.cmd, message_ptr, &self.message_offset, self.message_offset);
         return @ptrCast(T, message_ptr);
     }
 
@@ -57,8 +57,7 @@ fn Message(comptime BodyType: type) type {
             var self: Self = undefined;
             self.header.init(cmd, &self);
             BodyType.init(&self.body);
-            warn("Message.init: &self={*} &self.header={*} &self.body={*}\n",
-                    &self, &self.header, &self.body);
+            //warn("Message.init: &self={*} &self.header={*} &self.body={*}\n", &self, &self.header, &self.body);
             return self;
         }
 
@@ -106,38 +105,32 @@ const MyMsgBody = struct {
 };
 
 test "Message" {
-    // Create a message with MyMsgBody
+    // Create a message
     const MyMsg = Message(MyMsgBody);
-    var myMsg = MyMsg.init(456);
-    warn("myMsg: &myMsg={*} &myMsg.header={*} &myMsg.body={*}\n", &myMsg, &myMsg.header, &myMsg.body);
-    warn("myMsg={}\n", &myMsg);
+    var myMsg = MyMsg.init(123);
+    warn("\nmyMsg={}\n", &myMsg);
 
-    // Test myMsg
-    assert(myMsg.header.cmd == 456);
+    assert(myMsg.header.cmd == 123);
     assert(myMsg.header.message_offset == @ptrToInt(&myMsg.header.message_offset) - @ptrToInt(&myMsg)); 
     assert(mem.eql(u8, myMsg.body.data[0..], "ZZZ"));
 
     // Get the MessagePtr as *MyMsg
-    var myMsg2 = myMsg.header.getMessagePtrAs(*MyMsg);
-    assert(@ptrToInt(myMsg2) == @ptrToInt(&myMsg));
-    assert(mem.eql(u8, myMsg2.body.data[0..], "ZZZ"));
+    var pMsg = myMsg.header.getMessagePtrAs(*MyMsg);
+    assert(@ptrToInt(pMsg) == @ptrToInt(&myMsg));
+    assert(mem.eql(u8, pMsg.body.data[0..], "ZZZ"));
 
-    ////var buf1: [256]u8 = undefined;
-    ////var buf2: [256]u8 = undefined;
-    ////warn(myMsg2.message_ptr.format("{}", &myMsg2));
-    ////try testExpectedActual(
-    ////    try bufPrint(buf1[0..], "msg=Message(MyMessage)@{x}", @ptrToInt(&msg)),
-    ////    try bufPrint(buf2[0..], "msg={*}", &msg));
+    var buf1: [256]u8 = undefined;
+    var buf2: [256]u8 = undefined;
 
-//    try testExpectedActual(
-//        "msg={cmd=123,data={5a,5a,5a,},}",
-//        try bufPrint(buf2[0..], "msg={}", &msg));
-//
-//    msg.body.data[0] = 'a';
-//    try testExpectedActual(
-//        "msg={cmd=123,data={61,5a,5a,},}",
-//        try bufPrint(buf2[0..], "msg={}", &msg));
-//
+    try testExpectedActual(
+        "pMsg={cmd=123, message_offset=8, body={data={Z,Z,Z,},},}",
+        try bufPrint(buf2[0..], "pMsg={}", pMsg));
+
+    pMsg.body.data[0] = 'a';
+    try testExpectedActual(
+        "pMsg={cmd=123, message_offset=8, body={data={a,Z,Z,},},}",
+        try bufPrint(buf2[0..], "pMsg={}", pMsg));
+
 //    // Create a queue
 //    const MyQueue = Queue(MyMessage);
 //    var q = MyQueue.init();
