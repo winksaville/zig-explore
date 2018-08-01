@@ -1,3 +1,6 @@
+// Create a Message that supports arbitrary data
+// and can be passed between entities via a Queue.
+
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const bufPrint = std.fmt.bufPrint;
@@ -5,46 +8,6 @@ const assert = std.debug.assert;
 const warn = std.debug.warn;
 const mem = std.mem;
 const Queue = std.atomic.Queue;
-
-// From std/fmt/index.zig
-fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
-    if (mem.eql(u8, expected, actual)) return;
-
-    warn("\n====== expected this output: =========\n");
-    warn("{}", expected);
-    warn("\n======== instead found this: =========\n");
-    warn("{}", actual);
-    warn("\n======================================\n");
-    return error.TestFailed;
-}
-
-const MessageHeader = struct {
-    const Self = this;
-
-    pub cmd: u64,
-    pub message_offset: usize,
-
-    pub fn init(self: *Self, cmd: u64, message_ptr: var) void {
-        self.cmd = cmd;
-        self.message_offset = @ptrToInt(&self.message_offset) - @ptrToInt(message_ptr);
-        //warn("MessageHeader.init: cmd={} message_ptr={*}, &self.message_offset={*} self.message_offset={}\n", self.cmd, message_ptr, &self.message_offset, self.message_offset);
-    }
-
-    pub fn getMessagePtrAs(self: *const Self, comptime T: type) T {
-        var message_ptr = @intToPtr(T, @ptrToInt(&self.message_offset) - self.message_offset);
-        //warn("MessageHeader.getMessagePtrAs: cmd={} message_ptr={*}, &self.message_offset={*} self.message_offset={}\n", self.cmd, message_ptr, &self.message_offset, self.message_offset);
-        return @ptrCast(T, message_ptr);
-    }
-
-    pub fn format(self: *const Self,
-        comptime fmt: []const u8,
-        context: var,
-        comptime FmtError: type,
-        output: fn (@typeOf(context), []const u8) FmtError!void
-    ) FmtError!void {
-        try std.fmt.format(context, FmtError, output, "cmd={}, message_offset={}, ", self.cmd, self.message_offset);
-    }
-};
 
 fn Message(comptime BodyType: type) type {
     return struct {
@@ -57,7 +20,6 @@ fn Message(comptime BodyType: type) type {
             var self: Self = undefined;
             self.header.init(cmd, &self);
             BodyType.init(&self.body);
-            //warn("Message.init: &self={*} &self.header={*} &self.body={*}\n", &self, &self.header, &self.body);
             return self;
         }
 
@@ -77,13 +39,38 @@ fn Message(comptime BodyType: type) type {
     };
 }
 
+const MessageHeader = struct {
+    const Self = this;
+
+    pub cmd: u64,
+    pub message_offset: usize,
+
+    pub fn init(self: *Self, cmd: u64, message_ptr: var) void {
+        self.cmd = cmd;
+        self.message_offset = @ptrToInt(&self.message_offset) - @ptrToInt(message_ptr);
+    }
+
+    pub fn getMessagePtrAs(self: *const Self, comptime T: type) T {
+        var message_ptr = @intToPtr(T, @ptrToInt(&self.message_offset) - self.message_offset);
+        return @ptrCast(T, message_ptr);
+    }
+
+    pub fn format(self: *const Self,
+        comptime fmt: []const u8,
+        context: var,
+        comptime FmtError: type,
+        output: fn (@typeOf(context), []const u8) FmtError!void
+    ) FmtError!void {
+        try std.fmt.format(context, FmtError, output, "cmd={}, message_offset={}, ", self.cmd, self.message_offset);
+    }
+};
+
 const MyMsgBody = struct {
     const Self = this;
     data: [3]u8,
 
     fn init(self: *Self) void {
         mem.set(u8, self.data[0..], 'Z');
-        //warn("MyMsgBody.init: set data to 'Z' &self={*} &self.data[0]={*} self.data[0]={}\n", self, &self.data[0], self.data[0]);
     }
 
     pub fn format(m: *const MyMsgBody,
@@ -152,4 +139,15 @@ test "Message" {
     try testExpectedActual(
         "pMsg={cmd=123, message_offset=8, body={data={a,Z,Z,},},}",
         try bufPrint(buf2[0..], "pMsg={}", pMsg));
+}
+
+fn testExpectedActual(expected: []const u8, actual: []const u8) !void {
+    if (mem.eql(u8, expected, actual)) return;
+
+    warn("\n====== expected this output: =========\n");
+    warn("{}", expected);
+    warn("\n======== instead found this: =========\n");
+    warn("{}", actual);
+    warn("\n======================================\n");
+    return error.TestFailed;
 }
