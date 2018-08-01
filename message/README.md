@@ -5,7 +5,7 @@ and can be passed between entities via a Queue.
 
 ## Test
 ```bash
-$ zig test message.zig
+$ zig test test.zig
 ```
 
 ## Clean
