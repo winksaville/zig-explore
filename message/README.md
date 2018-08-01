@@ -1,13 +1,9 @@
 # Zig Message
 
-Use compile time compilation to create a message.
+Create a Message that supports arbitrary data
+and can be passed between entities via a Queue.
 
-So this works, I can "extend" a message and include
-different "bodyType's". But a Queue can only handle
-one Message(BodyType) and to be useful I want a Queue
-that can handle all Message(BodyType)'s
-
-## Building/testing
+## Test
 ```bash
 $ zig test message.zig
 ```

@@ -1,12 +1,13 @@
-# Zig var parameters
+# Zig var "types"
 
-A quick look at fn parameters of "type" 'var'. Var
-types are not a type but are inferred at compile
-time allowing appropriate code to be generated.
+In zig a parameter of type "var" isn't a type but is
+actually asking the compilter to infer the type at
+comptime. Not as I'd initially guessed an "any" type
+a runtime.
 
 ## Building/testing
 ```bash
-$ zig test var.zig
+$ zig test message.zig
 ```
 
 ## Clean
