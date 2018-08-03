@@ -45,11 +45,10 @@ test "Message" {
     warn("\nmyMsg={}\n", &myMsg);
 
     assert(myMsg.header.cmd == 123);
-    assert(myMsg.header.message_offset == @ptrToInt(&myMsg.header.message_offset) - @ptrToInt(&myMsg)); 
     assert(mem.eql(u8, myMsg.body.data[0..], "ZZZ"));
 
     // Get the MessagePtr as *MyMsg
-    var pMsg = myMsg.header.getMessagePtrAs(*MyMsg);
+    var pMsg = MyMsg.getMessagePtr(&myMsg.header);
     assert(@ptrToInt(pMsg) == @ptrToInt(&myMsg));
     assert(mem.eql(u8, pMsg.body.data[0..], "ZZZ"));
 
@@ -57,12 +56,12 @@ test "Message" {
     var buf2: [256]u8 = undefined;
 
     try testExpectedActual(
-        "pMsg={cmd=123, message_offset=0, body={data={Z,Z,Z,},},}",
+        "pMsg={cmd=123, body={data={Z,Z,Z,},},}",
         try bufPrint(buf2[0..], "pMsg={}", pMsg));
 
     pMsg.body.data[0] = 'a';
     try testExpectedActual(
-        "pMsg={cmd=123, message_offset=0, body={data={a,Z,Z,},},}",
+        "pMsg={cmd=123, body={data={a,Z,Z,},},}",
         try bufPrint(buf2[0..], "pMsg={}", pMsg));
 
     // Create a queue of MessageHeader pointers
@@ -78,13 +77,13 @@ test "Message" {
     // Add and remove it from the queue and verify
     q.put(&node_0);
     var n = q.get() orelse { return error.QGetFailed; };
-    pMsg = n.data.getMessagePtrAs(*MyMsg);
+    pMsg = MyMsg.getMessagePtr(n.data);
     assert(pMsg.header.cmd == 123);
     assert(mem.eql(u8, pMsg.body.data[0..], "aZZ"));
 
     warn(" pMsg={}\n", pMsg);
     try testExpectedActual(
-        "pMsg={cmd=123, message_offset=0, body={data={a,Z,Z,},},}",
+        "pMsg={cmd=123, body={data={a,Z,Z,},},}",
         try bufPrint(buf2[0..], "pMsg={}", pMsg));
 }
 

@@ -18,7 +18,13 @@ pub fn Message(comptime BodyType: type) type {
             return self;
         }
 
-        pub fn format(self: *const Self,
+        /// Return a pointer to the Message this MessageHeader is a member of.
+        pub fn getMessagePtr(header: *MessageHeader) *Self {
+            return @fieldParentPtr(Self, "header", header);
+        }
+
+        pub fn format(
+            self: *const Self,
             comptime fmt: []const u8,
             context: var,
             comptime FmtError: type,
@@ -37,25 +43,19 @@ pub fn Message(comptime BodyType: type) type {
 pub const MessageHeader = packed struct {
     const Self = this;
 
-    pub message_offset: usize,
     pub cmd: u64,
 
     pub fn init(self: *Self, cmd: u64, message_ptr: var) void {
         self.cmd = cmd;
-        self.message_offset = @ptrToInt(&self.message_offset) - @ptrToInt(message_ptr);
     }
 
-    pub fn getMessagePtrAs(self: *const Self, comptime T: type) T {
-        var message_ptr = @intToPtr(T, @ptrToInt(&self.message_offset) - self.message_offset);
-        return @ptrCast(T, message_ptr);
-    }
-
-    pub fn format(self: *const Self,
+    pub fn format(
+        self: *const Self,
         comptime fmt: []const u8,
         context: var,
         comptime FmtError: type,
         output: fn (@typeOf(context), []const u8) FmtError!void
     ) FmtError!void {
-        try std.fmt.format(context, FmtError, output, "cmd={}, message_offset={}, ", self.cmd, self.message_offset);
+        try std.fmt.format(context, FmtError, output, "cmd={}, ", self.cmd);
     }
 };
