@@ -1,9 +1,9 @@
 // Create an Actor that process messages
 
+const std = @import("std");
 const MessageHeader = @import("../message/message.zig").MessageHeader;
 
-const std = @import("std");
-const warn = std.debug.warn;
+pub const ActorPtr = *@OpaqueType();
 
 pub fn Actor(comptime BodyType: type) type {
     return packed struct {

@@ -1,11 +1,14 @@
 // Create a Message that supports arbitrary data
 // and can be passed between entities via a Queue.
 
-const Actor = @import("actor.zig").Actor;
+const actor = @import("actor.zig");
+const Actor = actor.Actor;
+const ActorPtr = actor.ActorPtr;
 
 const Msg = @import("../message/message.zig");
 const Message = Msg.Message;
 const MessageHeader = Msg.MessageHeader;
+const ActorDispatcher = @import("actor_dispatcher.zig").ActorDispatcher;
 
 const std = @import("std");
 const bufPrint = std.fmt.bufPrint;
@@ -47,21 +50,21 @@ const MyActorBody = packed struct {
 
     count: u64,
 
-    fn init(actor: *Actor(MyActorBody)) void {
-        var self = &actor.body;
+    fn init(actr: *Actor(MyActorBody)) void {
+        var self = &actr.body;
         self.count = 0;
     }
 
     pub fn processMessage(
-            actor: *Actor(MyActorBody),
+            actr: *Actor(MyActorBody),
             msgHeader: *MessageHeader,
     ) void {
         var pMsg = msgHeader.getMessagePtrAs(*Message(MyMsgBody));
         assert(pMsg.header.cmd == msgHeader.cmd);
 
-        actor.body.count += 1;
+        actr.body.count += 1;
         warn("MyActorBody: processMessage cmd={} count={}\n",
-            msgHeader.cmd, actor.body.count);
+            msgHeader.cmd, actr.body.count);
     }
 };
 
@@ -113,6 +116,13 @@ test "Actor" {
     myActor.handleMessage(n.data);
     assert(myActor.body.count == 2);
 
+    const MyActorDispatcher = ActorDispatcher(5);
+    var myActorDispatcher = MyActorDispatcher.init();
+    assert(myActorDispatcher.actors_count == 0);
+    try myActorDispatcher.add(&myActor);
+    assert(myActorDispatcher.actors_count == 1);
+    assert(myActorDispatcher.actors[0] == @ptrCast(ActorPtr, &myActor));
+
     warn("call threadSpawn\n");
     thread0_context.init("thread0");
     warn("thread0_context.name len={} name={}\n", thread0_context.name.len, thread0_context.name[0..thread0_context.name_len]);
@@ -120,4 +130,5 @@ test "Actor" {
     warn("call wait\n");
     thread_0.wait();
     warn("call after wait\n");
+
 }
