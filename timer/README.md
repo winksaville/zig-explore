@@ -14,13 +14,15 @@ $ zig test --release-fast timer.zig
 Test 1/1 Timer...
 aux1=3 aux2=3
 freq=3600000000
-duration_cc:66  = cc_end:6139006324558943 - cc_start:6139006324558877
-duration_rdtsc:66  = tsc_end:6139006324631554 - tsc_start:6139006324631488
-duration_rdtscp:66 = tsc_end:6139006324689326 - tsc_start:6139006324689260 aux_start=1 aux_end=1
-test timer.read(): time=3.101288 ns/op=15.5064 ops/sec=6.448934261409179e+07
-test rdstc(): time=1.359746 ns/op=6.7987 ops/sec=1.4708628269981328e+08
-test rdstcp(): time=1.370580 ns/op=6.8529 ops/sec=1.4592365051196104e+08
-test readCc(): time=1.370852 ns/op=6.8543 ops/sec=1.4589470553694078e+08
+duration_cc:77  = cc_end:6275814313601470 - cc_start:6275814313601393
+duration_rdtsc:66  = tsc_end:6275814313661288 - tsc_start:6275814313661222
+duration_rdtscp:77 = tsc_end:6275814313718180 - tsc_start:6275814313718103 aux_start=1 aux_end=1
+Warm up CPU
+Running loops
+test timer.read(): time=3.031345 ns/op=15.1567 ops/sec=6.597730771530142e+07
+test rdstc(): time=1.363489 ns/op=6.8174 ops/sec=1.466824862065639e+08
+test rdstcp(): time=1.366454 ns/op=6.8323 ops/sec=1.463642376186104e+08
+test readCc(): time=1.365634 ns/op=6.8282 ops/sec=1.4645208749916753e+08
 OK
 All tests passed.
 ```
