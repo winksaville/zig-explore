@@ -11,18 +11,19 @@ Also, added struct CycleCounter as a possible protable tsc like interface.
 ## Test on my desktop
 ```bash
 $ zig test --release-fast timer.zig
-Test 1/1 Timer...
+Test 1/2 fences...OK
+Test 2/2 Timer...
 aux1=3 aux2=3
 freq=3600000000
-duration_cc:77  = cc_end:6275814313601470 - cc_start:6275814313601393
-duration_rdtsc:66  = tsc_end:6275814313661288 - tsc_start:6275814313661222
-duration_rdtscp:77 = tsc_end:6275814313718180 - tsc_start:6275814313718103 aux_start=1 aux_end=1
+    duration_cc:77 =  cc_end:6303880268225749 -  cc_start:6303880268225672
+ duration_rdtsc:77 = tsc_end:6303880268325365 - tsc_start:6303880268325288
+duration_rdtscp:77 = tsc_end:6303880268421945 - tsc_start:6303880268421868 aux_start=1 aux_end=1
 Warm up CPU
 Running loops
-test timer.read(): time=3.031345 ns/op=15.1567 ops/sec=6.597730771530142e+07
-test rdstc(): time=1.363489 ns/op=6.8174 ops/sec=1.466824862065639e+08
-test rdstcp(): time=1.366454 ns/op=6.8323 ops/sec=1.463642376186104e+08
-test readCc(): time=1.365634 ns/op=6.8282 ops/sec=1.4645208749916753e+08
+test timer.read(): cpu_id=0 time=3.1079s time/op=15.5394ns ops/sec=64352674
+test     readCc(): cpu_id=24 time=1.3606s time/op=6.8032ns ops/sec=146989476
+test      rdtsc(): cpu_id=24 time=1.3625s time/op=6.8126ns ops/sec=146787117
+test     rdstcp(): cpu_id=24 time=1.3621s time/op=6.8106ns ops/sec=146829179
 OK
 All tests passed.
 ```
