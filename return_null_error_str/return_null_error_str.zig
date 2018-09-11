@@ -21,21 +21,16 @@ pub fn next(pAllocator: *Allocator) ?(error![]u8) {
     var s = nextStr(buf[0..]);
     if (s == null) {
         warn("s is null\n");
-        return null;
+        return (?(error![]u8))(null); // Also, return null; works
     }
 
     // This works:
     //return mem.dupe(pAllocator, u8, s.?);
 
-    // Using var n causes compile error:
-    //   $ zig test return_null_error_str.zig 
-    //   return_null_error_str.zig:35:13: error: expected type '?error![]u8', found '@typeOf(dupe).ReturnType.ErrorSet'
-    //       var n = try mem.dupe(pAllocator, u8, s.?);
-    //               ^
-    var n = try mem.dupe(pAllocator, u8, s.?);
-    warn("n={}\n");
-    return n;
-
+    // To make this work you need to cast the return value
+    var n = mem.dupe(pAllocator, u8, s.?) catch |err| return (error![]u8)(err);
+    warn("n={}\n", n);
+    return (error![]u8)(n);
 }
 
 test "fancy_error_type" {

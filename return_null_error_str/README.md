@@ -2,7 +2,8 @@
 
 The "string" could potentially be any type.
 
-As noted below, using `try` on mem.dupe causes a compiler error:
+I initially had a compiler error when I wanted to print the contents for what next
+would return:
 ```
     18	pub fn next(pAllocator: *Allocator) ?(error![]u8) {
     19	    var buf: [100]u8 = undefined;
@@ -26,6 +27,28 @@ As noted below, using `try` on mem.dupe causes a compiler error:
     37	    return n;
     38	
     39	}
+```
+
+The solution from andrew, https://irclog.whitequark.org/zig/2018-09-11#23039575,
+is to cast to the necessary return type:
+```
+    18	pub fn next(pAllocator: *Allocator) ?(error![]u8) {
+    19	    var buf: [100]u8 = undefined;
+    20	
+    21	    var s = nextStr(buf[0..]);
+    22	    if (s == null) {
+    23	        warn("s is null\n");
+    24	        return (?(error![]u8))(null); // Also, return null; works
+    25	    }
+    26	
+    27	    // This works:
+    28	    //return mem.dupe(pAllocator, u8, s.?);
+    29	
+    30	    // To make this work you need to cast the return value
+    31	    var n = mem.dupe(pAllocator, u8, s.?) catch |err| return (error![]u8)(err);
+    32	    warn("n={}\n", n);
+    33	    return (error![]u8)(n);
+    34	}
 ```
 
 I got this technique from std/os/index.txt for the implementation
