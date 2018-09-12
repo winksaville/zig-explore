@@ -28,11 +28,6 @@ pub fn FuncInterface(comptime ft: FuncType, comptime T: type) type {
     };
 }
 
-pub fn dupStr(pAllocator: *Allocator, str: []const u8) ![]const u8 {
-    if (str.len == 0) return error.WTF;
-    return try mem.dupe(pAllocator, u8, str);
-}
-
 pub fn theStr(str: []const u8) ![]const u8 {
     if (str.len == 0) return error.WTF;
     return str;
@@ -42,6 +37,11 @@ test "FuncInterface.regular" {
     var fi = FuncInterface(FuncType.regular, []const u8).init(theStr);
     var s = try fi.func("hi");
     assert(mem.eql(u8, s, "hi"));
+}
+
+pub fn dupStr(pAllocator: *Allocator, str: []const u8) ![]const u8 {
+    if (str.len == 0) return error.WTF;
+    return try mem.dupe(pAllocator, u8, str);
 }
 
 test "FuncInterface.alloc" {
