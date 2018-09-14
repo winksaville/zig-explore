@@ -11,7 +11,7 @@ pub const FuncType = enum {
 
 pub fn FuncInterface(comptime ft: FuncType, comptime T: type) type {
     return struct {
-        const Self = this;
+        const Self = @This();
 
         const Type = switch (ft) {
             FuncType.alloc => fn (*Allocator, []const u8) error!T,

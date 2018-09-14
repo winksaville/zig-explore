@@ -6,7 +6,7 @@ const Allocator = mem.Allocator;
 
 pub fn SimplerFuncInterface(comptime FuncType: type) type {
     return struct {
-        const Self = this;
+        const Self = @This();
 
         func: FuncType,
 
