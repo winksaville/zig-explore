@@ -3,9 +3,9 @@ const Queue = std.atomic.Queue;
 const warn = std.debug.warn;
 
 
-pub fn main() void {
+test "print_data" {
     const S = struct {
-        const Self = this;
+        const Self = @This();
 
         b1: u1,
         i: u8,
@@ -32,7 +32,7 @@ pub fn main() void {
 
     var s = S {.b1=1, .i=123, .ai=a[0..2]};
     warn("s = S {*}\n", &s);
-    warn("s = S {}\n", &s);
+    //warn("s = S {}\n", &s);
     warn("s.b1={}\n", s.b1);
     warn("s.i={}\n", s.i);
     warn("s.ai={}\n", s.ai);
@@ -48,27 +48,34 @@ pub fn main() void {
     var da = std.heap.DirectAllocator.init();
     defer da.deinit();
     var allocator = &da.allocator;
-    var node: *Q.Node = allocator.create(Q.Node {.data=1, .next=undefined}) catch { warn("OOM\n"); return; };
+    var node: *Q.Node = try allocator.create(Q.Node {
+            .data=1,
+            .next=undefined,
+            .prev=undefined,
+    });
+    defer allocator.destroy(node);
     q.put(node);
     q.dump();
 
     var node0 = Q.Node {
         .data = 123,
         .next = undefined,
+        .prev = undefined,
     };
     q.put(&node0);
     q.dump();
     var node1 = Q.Node {
         .data = 456,
         .next = undefined,
+        .prev = undefined,
     };
     q.put(&node1);
     q.dump();
 
     
     var b = []Q.Node {
-        Q.Node { .data = 789, .next = undefined },
-        Q.Node { .data = 012, .next = undefined },
+        Q.Node { .data = 789, .next = undefined, .prev = undefined },
+        Q.Node { .data = 012, .next = undefined, .prev = undefined },
     };
     q.put(&b[0]);
     q.dump();
