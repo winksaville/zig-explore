@@ -3,7 +3,7 @@ const assert = std.debug.assert;
 const mem = std.mem;
 
 const Message = struct {
-    const Self = this;
+    const Self = @This();
     const BodyPtr = *@OpaqueType();
 
     pub body_ptr: BodyPtr,
@@ -21,7 +21,7 @@ const Message = struct {
 };
 
 const MyMsgBody = struct {
-    const Self = this;
+    const Self = @This();
     pub data: [3]u8,
 
     pub fn init() Self {
