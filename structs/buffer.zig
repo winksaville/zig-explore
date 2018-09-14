@@ -1,9 +1,10 @@
 const std = @import("std");
 const warn = std.debug.warn;
+const assert = std.debug.assert;
 
 fn Buffer(comptime buffer_size: usize) type {
     return struct {
-        const Self = this;
+        const Self = @This();
 
         pub buffer: [buffer_size]u8,
 
@@ -22,7 +23,9 @@ fn Buffer(comptime buffer_size: usize) type {
     };
 }
 
-pub fn main() u8 {
+test "Buffer" {
+    warn("\n");
+
     const Buffer4k = Buffer(0x1000);
     var bufStack = Buffer4k.init();
     warn("bufStack.buffer[254]={}\n", bufStack.buffer[254]);
@@ -34,10 +37,10 @@ pub fn main() u8 {
     defer direct_allocator.deinit();
     var allocator = &direct_allocator.allocator;
 
-    var bufHeap = allocator.create(Buffer4k.init()) catch { std.debug.warn("OOM\n"); return 0xFF; };
+    var bufHeap = try allocator.create(Buffer4k.init());
     defer allocator.destroy(bufHeap);
     var r1 = bufHeap.buffer[254];
     warn("bufHeap.buffer[254]={}\n", r1);
 
-    return bufStack.buffer[254];
+    assert(bufStack.buffer[254] == 254);
 }
