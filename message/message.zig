@@ -6,7 +6,7 @@ const warn = std.debug.warn;
 
 pub fn Message(comptime BodyType: type) type {
     return packed struct {
-        const Self = this;
+        const Self = @This();
 
         pub header: MessageHeader,
         pub body: BodyType,
@@ -41,7 +41,7 @@ pub fn Message(comptime BodyType: type) type {
 }
 
 pub const MessageHeader = packed struct {
-    const Self = this;
+    const Self = @This();
 
     pub cmd: u64,
 
@@ -69,7 +69,7 @@ const mem = std.mem;
 const Queue = std.atomic.Queue;
 
 const MyMsgBody = packed struct {
-    const Self = this;
+    const Self = @This();
     data: [3]u8,
 
     fn init(self: *Self) void {
