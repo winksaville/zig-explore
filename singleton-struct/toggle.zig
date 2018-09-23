@@ -1,5 +1,5 @@
 const sba_ns = @import("singleton_bit_array.zig");
-const pSba = sba_ns.pSingleton_bit_array;
+const pSba = &sba_ns.singleton_bit_array;
 
 pub fn print_pSba() void {
     @import("std").debug.warn("toggle.print_pSba={*}\n", pSba);

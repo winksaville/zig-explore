@@ -3,7 +3,7 @@ const assert = std.debug.assert;
 const warn = std.debug.warn;
 
 const sba_ns = @import("singleton_bit_array.zig");
-const pSba = sba_ns.pSingleton_bit_array;
+const pSba = &sba_ns.singleton_bit_array;
 
 const toggle_ns = @import("toggle.zig");
 const toggle = toggle_ns.toggle;
