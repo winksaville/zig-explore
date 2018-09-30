@@ -1402,7 +1402,7 @@ fn testTokenizer(comptime list_type: ListType, source_code: []const u8) !void {
         tokenizer: Tokenizer,
         source: []const u8,
         buffer: [0x100000]u8,
-        token_array: [0x10000]Token,
+        token_array: [0x2000]Token,
 
         fn init(pAllocator: *Allocator, source: []const u8) Self {
             return Self {
@@ -1424,9 +1424,14 @@ fn testTokenizer(comptime list_type: ListType, source_code: []const u8) !void {
 
             var token_list = switch(list_type) {
                 ListType.array_list => ArrayList(Token).init(pAllocator),
-                ListType.segmented_list => std.SegmentedList(Token, 0x1000).init(pAllocator),
+                ListType.segmented_list => std.SegmentedList(Token, 0x2000).init(pAllocator),
                 ListType.array => {},
             };
+            switch(list_type) {
+                ListType.array_list => try token_list.ensureCapacity(0x2000),
+                ListType.segmented_list => {},
+                ListType.array => {},
+            }
             pSelf.tokenizer = Tokenizer.init(pSelf.source);
 
             var i: u64 = 0;
