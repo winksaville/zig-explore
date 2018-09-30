@@ -9,6 +9,7 @@ const Token = std.zig.Token;
 
 const Benchmark = @import("../../zig-benchmark/benchmark.zig").Benchmark;
 
+
 const small_source: []const u8 =
 \\pub fn main() {
 \\}
@@ -1403,33 +1404,43 @@ fn testTokenizer(comptime list_type: ListType, source_code: []const u8) !void {
         source: []const u8,
         buffer: [0x100000]u8,
         token_array: [0x2000]Token,
+        token_list: switch(list_type) {
+            ListType.array_list => ArrayList(Token),
+            ListType.segmented_list => std.SegmentedList(Token, 0x2000),
+            ListType.array => ArrayList(Token),
+        },
 
         fn init(pAllocator: *Allocator, source: []const u8) Self {
-            return Self {
-                .pAllocator = pAllocator,
-                .tokenizer = undefined,
-                .source = source,
-                .buffer = undefined,
-                .token_array = undefined,
-            };
+            var self: Self = undefined;
+            self.pAllocator = pAllocator;
+            self.tokenizer = undefined;
+            self.source = source;
+            self.buffer = undefined;
+            self.token_array = undefined;
+            self.token_list = @typeOf(self.token_list).init(pAllocator);
+            return self;
         }
 
         fn deinit(pSelf: *Self) void {
         }
 
+        const SetupReturnType = switch (list_type) { ListType.array_list => error!void, else => void };
+
+        fn setup(pSelf: *Self) SetupReturnType {
+            switch(list_type) {
+                ListType.array_list => return pSelf.token_list.ensureCapacity(0x2000),
+                ListType.segmented_list => {},
+                ListType.array => {},
+            }
+        }
 
         fn benchmark(pSelf: *Self) error!u64 {
             var allocator = std.heap.FixedBufferAllocator.init(pSelf.buffer[0..]);
             const pAllocator = &allocator.allocator;
 
-            var token_list = switch(list_type) {
-                ListType.array_list => ArrayList(Token).init(pAllocator),
-                ListType.segmented_list => std.SegmentedList(Token, 0x2000).init(pAllocator),
-                ListType.array => {},
-            };
             switch(list_type) {
-                ListType.array_list => try token_list.ensureCapacity(0x2000),
-                ListType.segmented_list => {},
+                ListType.array_list,
+                ListType.segmented_list => pSelf.token_list.shrink(0),
                 ListType.array => {},
             }
             pSelf.tokenizer = Tokenizer.init(pSelf.source);
@@ -1439,11 +1450,9 @@ fn testTokenizer(comptime list_type: ListType, source_code: []const u8) !void {
                 var token = pSelf.tokenizer.next();
 
                 switch (list_type) {
-                    ListType.array_list => {
-                        try token_list.append(token);
-                    },
+                    ListType.array_list,
                     ListType.segmented_list => {
-                        const pToken = try token_list.addOne();
+                        const pToken = try pSelf.token_list.addOne();
                         pToken.* = token;
                     },
                     ListType.array => {
@@ -1453,12 +1462,6 @@ fn testTokenizer(comptime list_type: ListType, source_code: []const u8) !void {
 
                 if (token.id == Token.Id.Eof) break;
             }
-            switch(list_type) {
-                ListType.array_list => token_list.deinit(),
-                ListType.segmented_list => token_list.deinit(),
-                ListType.array => {},
-            }
-
             return i;
         }
     };
@@ -1467,6 +1470,7 @@ fn testTokenizer(comptime list_type: ListType, source_code: []const u8) !void {
     defer allocator.deinit();
     const pAllocator = &allocator.allocator;
     var bm = Benchmark.init("TokenizerBm", pAllocator);
+    bm.logl = 0;
     bm.repetitions = 10;
 
     var tokenizer_bm = TokenizerBm.init(pAllocator, source_code);
