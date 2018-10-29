@@ -4,7 +4,7 @@ const TypeId = builtin.TypeId;
 
 const std = @import("std");
 const math = std.math;
-//const meta = std.meta;
+const meta = std.meta;
 const assert = std.debug.assert;
 const warn = std.debug.warn;
 
@@ -45,46 +45,26 @@ pub fn Matrix(comptime T: type, comptime m: usize, comptime n: usize) type {
     };
 }
 
-fn getDef(comptime defs: []TypeInfo.Definition, name: []const u8) !TypeInfo.Definition {
-    for (defs) |def| {
-        if (std.mem.eql(u8, def.name, name)) {
-            return def;
-        }
-    }
-    return error.NoDef;
-}
-
-fn getMemberIdx(comptime T: type, name: []const u8) !usize {
-    var i: usize = 0;
-    while (i < @memberCount(T)) : (i += 1) {
-        if (std.mem.eql(u8, @memberName(T, i), name)) {
-            return i;
-        }
-    }
-    return error.NoMember;
-}
-
 /// Multiply Matrixes m1 by m2
-pub fn MatrixMuliplier(comptime m1: type, comptime m2: type) type {
-    const m1_def = try getDef(@typeInfo(m1).Struct.defs, "Self");
-    const m2_def = try getDef(@typeInfo(m2).Struct.defs, "Self");
+pub fn MatrixMultiplier(comptime m1: type, comptime m2: type) type {
+    const m1_DefInfo = meta.definitionInfo(m1, "Self").data.Type;
+    const m1_row_cnt = m1_DefInfo.row_cnt;
+    const m1_col_cnt = m1_DefInfo.col_cnt;
+    const m1_DataType = @typeInfo(@typeInfo(meta.fieldInfo(m1, "data").field_type).Array.child).Array.child;
 
-    const m1_row_cnt = m1_def.data.Type.row_cnt;
-    const m1_col_cnt = m1_def.data.Type.col_cnt;
-    const m1_data_idx = try getMemberIdx(m1, "data");
-    const m1_DataType = @typeInfo(@typeInfo(@memberType(m1, m1_data_idx)).Array.child).Array.child;
-
-    const m2_row_cnt = m2_def.data.Type.row_cnt;
-    const m2_col_cnt = m2_def.data.Type.col_cnt;
-    const m2_data_idx = try getMemberIdx(m2, "data");
-    const m2_DataType = @typeInfo(@typeInfo(@memberType(m1, m2_data_idx)).Array.child).Array.child;
+    const m2_DefInfo = meta.definitionInfo(m1, "Self").data.Type;
+    const m2_row_cnt = m2_DefInfo.row_cnt;
+    const m2_col_cnt = m2_DefInfo.col_cnt;
+    const m2_DataType = @typeInfo(@typeInfo(meta.fieldInfo(m2, "data").field_type).Array.child).Array.child;
 
     // What other validations should I check
     if (m1_DataType != m2_DataType) {
-        return @compileError("Matrix m1.data type != m2.data type");
+        @compileError("m1:" ++ @typeName(m1_DataType) ++ " != m2:" ++ @typeName(m2_DataType));
     }
     if (m1_col_cnt != m2_row_cnt) {
-        return @compileError("Matrix m1.col_cnt != m2.row_cnt");
+        //usize can't be printed using compileError :(
+        //@compileError("m1.col_cnt:" ++ m1_col_cnt ++ " != m2.row_cnt:" ++ m2_row_cnt);
+        @compileError("Matrix m1.col_cnt != m2.row_cnt");
     }
     const DataType = m1_DataType;
     const row_cnt = m1_row_cnt;
@@ -131,7 +111,7 @@ test "abc" {
     };
     m1.print("matrix.mul m1:\n");
     m2.print("matrix.mul m2:\n");
-    const m3 = MatrixMuliplier(@typeOf(m1), @typeOf(m2)).mul(&m1, &m2);
+    const m3 = MatrixMultiplier(@typeOf(m1), @typeOf(m2)).mul(&m1, &m2);
     m3.print("matrix.mul m3:\n");
 
     var expected = Matrix(f32, 2, 2).init();
