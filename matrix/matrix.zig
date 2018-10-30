@@ -21,6 +21,17 @@ pub fn Matrix(comptime T: type, comptime m: usize, comptime n: usize) type {
             return Self.{ .data = undefined };
         }
 
+        /// Initialize Matrix to a value
+        pub fn initVal(val: T) Self {
+            var self = Self.init();
+            for (self.data) |row, i| {
+                for (row) |_, j| {
+                    self.data[i][j] = val;
+                }
+            }
+            return self;
+        }
+
         /// Return true of pSelf.data == pOther.data
         pub fn eql(pSelf: *const Self, pOther: *const Self) bool {
             for (pSelf.data) |row, i| {
@@ -37,7 +48,7 @@ pub fn Matrix(comptime T: type, comptime m: usize, comptime n: usize) type {
             for (pSelf.data) |row, i| {
                 warn("{}: []{}.{{ ", i, @typeName(T));
                 for (row) |val, j| {
-                    warn("{.7}{} ", val, if (j < (row.len - 1)) "," else "");
+                    warn("{.7}{}", val, if (j < (row.len - 1)) ", " else " ");
                 }
                 warn("}},\n");
             }
@@ -47,28 +58,20 @@ pub fn Matrix(comptime T: type, comptime m: usize, comptime n: usize) type {
 
 /// Multiply Matrixes m1 by m2
 pub fn MatrixMultiplier(comptime m1: type, comptime m2: type) type {
-    const m1_DefInfo = meta.definitionInfo(m1, "Self").data.Type;
-    const m1_row_cnt = m1_DefInfo.row_cnt;
-    const m1_col_cnt = m1_DefInfo.col_cnt;
     const m1_DataType = @typeInfo(@typeInfo(meta.fieldInfo(m1, "data").field_type).Array.child).Array.child;
-
-    const m2_DefInfo = meta.definitionInfo(m1, "Self").data.Type;
-    const m2_row_cnt = m2_DefInfo.row_cnt;
-    const m2_col_cnt = m2_DefInfo.col_cnt;
     const m2_DataType = @typeInfo(@typeInfo(meta.fieldInfo(m2, "data").field_type).Array.child).Array.child;
 
     // What other validations should I check
     if (m1_DataType != m2_DataType) {
         @compileError("m1:" ++ @typeName(m1_DataType) ++ " != m2:" ++ @typeName(m2_DataType));
     }
-    if (m1_col_cnt != m2_row_cnt) {
-        //usize can't be printed using compileError :(
-        //@compileError("m1.col_cnt:" ++ m1_col_cnt ++ " != m2.row_cnt:" ++ m2_row_cnt);
-        @compileError("Matrix m1.col_cnt != m2.row_cnt");
+
+    if (m1.col_cnt != m2.row_cnt) {
+        @compileError("m1.col_cnt:" ++ m1.col_cnt ++ " != m2.row_cnt:" ++ m2.row_cnt);
     }
     const DataType = m1_DataType;
-    const row_cnt = m1_row_cnt;
-    const col_cnt = m2_col_cnt;
+    const row_cnt = m1.row_cnt;
+    const col_cnt = m2.col_cnt;
     return struct.{
         pub fn mul(mt1: *const m1, mt2: *const m2) Matrix(DataType, row_cnt, col_cnt) {
             var r = Matrix(DataType, row_cnt, col_cnt).init();
@@ -79,13 +82,14 @@ pub fn MatrixMultiplier(comptime m1: type, comptime m2: type) type {
                 inline while (j < col_cnt) : (j += 1) {
                     //warn(" ({}:", j);
                     comptime var k: usize = 0;
-                    inline while (k < col_cnt) : (k += 1) {
+                    // The inner loop is m1.col_cnt or m2.row_cnt, which are equal
+                    inline while (k < m1.col_cnt) : (k += 1) {
                         var val = mt1.data[i][k] * mt2.data[k][j];
                         if (k == 0) {
                             r.data[i][j] = val;
                             //warn(" {}:{}={} * {}", k, val, mt1.data[i][k], mt2.data[k][j]);
                         } else {
-                            r.data[i][j] += mt1.data[i][k] * mt2.data[k][j];
+                            r.data[i][j] += val;
                             //warn(" {}:{}={} * {}", k, val, mt1.data[i][k], mt2.data[k][j]);
                         }
                     }
@@ -97,22 +101,95 @@ pub fn MatrixMultiplier(comptime m1: type, comptime m2: type) type {
     };
 }
 
-test "abc" {
+test "matrix.init" {
     warn("\n");
+
+    var m1 = Matrix(f32, 1, 1).init();
+    m1.data = [][1]f32.{
+        []f32.{ 2 },
+    };
+    m1.print("matrix.1x1*1x1 m1:\n");
+    assert(m1.data[0][0] == 2);
+
+    const mf32 = Matrix(f32, 4, 4).initVal(1);
+    mf32.print("mf32: init(1)\n");
+
+    for (mf32.data) |row| {
+        for (row) |val| {
+            assert(val == 1);
+        }
+    }
+}
+
+test "matrix.eql" {
+    warn("\n");
+    const m0 = Matrix(f32, 4, 4).initVal(0);
+    for (m0.data) |row| {
+        for (row) |val| {
+            assert(val == 0);
+        }
+    }
+    var o0 = Matrix(f32, 4, 4).initVal(0);
+    assert(m0.eql(&o0));
+
+    // Modify last value and verify !eql
+    o0.data[3][3] = 1;
+    o0.print("data.eql: o0\n");
+    assert(!m0.eql(&o0));
+
+    // Modify first value and verify !eql
+    o0.data[0][0] = 1;
+    o0.print("data.eql: o0\n");
+    assert(!m0.eql(&o0));
+
+    // Restore back to 0 and verify eql
+    o0.data[3][3] = 0;
+    o0.data[0][0] = 0;
+    o0.print("data.eql: o0\n");
+    assert(m0.eql(&o0));
+}
+
+test "matrix.1x1*1x1" {
+    warn("\n");
+
+    const m1 = Matrix(f32, 1, 1).initVal(2);
+    m1.print("matrix.1x1*1x1 m1:\n");
+
+    const m2 = Matrix(f32, 1, 1).initVal(3);
+    m2.print("matrix.1x1*1x1 m2:\n");
+
+    const m3 = MatrixMultiplier(@typeOf(m1), @typeOf(m2)).mul(&m1, &m2);
+    m3.print("matrix.1x1*1x1 m3:\n");
+
+    var expected = Matrix(f32, 1, 1).init();
+    expected.data = [][1]f32.{
+        []f32.{
+            (m1.data[0][0] * m2.data[0][0]),
+        },
+    };
+    expected.print("matrix.1x1*1x1 expected:\n");
+    assert(m3.eql(&expected));
+}
+
+test "matrix.2x2*2x2" {
+    warn("\n");
+
     var m1 = Matrix(f32, 2, 2).init();
     m1.data = [][2]f32.{
         []f32.{ 1, 2 },
         []f32.{ 3, 4 },
     };
+    m1.print("matrix.2x2*2x2 m1:\n");
+
     var m2 = Matrix(f32, 2, 2).init();
     m2.data = [][2]f32.{
         []f32.{ 5, 6 },
         []f32.{ 7, 8 },
     };
-    m1.print("matrix.mul m1:\n");
-    m2.print("matrix.mul m2:\n");
+    m2.print("matrix.2x2*2x2 m2:\n");
+
     const m3 = MatrixMultiplier(@typeOf(m1), @typeOf(m2)).mul(&m1, &m2);
-    m3.print("matrix.mul m3:\n");
+    m3.print("matrix.2x2*2x2 m3:\n");
 
     var expected = Matrix(f32, 2, 2).init();
     expected.data = [][2]f32.{
@@ -125,6 +202,35 @@ test "abc" {
             (m1.data[1][0] * m2.data[0][1]) + (m1.data[1][1] * m2.data[1][1]),
         },
     };
-    expected.print("matrix.mul expected:\n");
+    expected.print("matrix.2x2*2x2 expected:\n");
+    assert(m3.eql(&expected));
+}
+
+test "matrix.1x2*2x1" {
+    warn("\n");
+
+    var m1 = Matrix(f32, 1, 2).init();
+    m1.data = [][2]f32.{
+        []f32.{ 3, 4 },
+    };
+    m1.print("matrix.1x2*2x1 m1:\n");
+
+    var m2 = Matrix(f32, 2, 1).init();
+    m2.data = [][1]f32.{
+        []f32.{ 5 },
+        []f32.{ 7 },
+    };
+    m2.print("matrix.1x2*2x1 m2:\n");
+
+    const m3 = MatrixMultiplier(@typeOf(m1), @typeOf(m2)).mul(&m1, &m2);
+    m3.print("matrix.1x2*2x1 m3:\n");
+
+    var expected = Matrix(f32, 1, 1).init();
+    expected.data = [][1]f32.{
+        []f32.{
+            (m1.data[0][0] * m2.data[0][0]) + (m1.data[0][1] * m2.data[1][0]),
+        },
+    };
+    expected.print("matrix.1x2*2x1 expected:\n");
     assert(m3.eql(&expected));
 }
