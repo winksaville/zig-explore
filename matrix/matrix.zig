@@ -56,7 +56,7 @@ pub fn Matrix(comptime T: type, comptime m: usize, comptime n: usize) type {
     };
 }
 
-/// Multiply Matrixes m1 by m2
+/// Returns a struct.mul function that multiplies m1 by m2
 pub fn MatrixMultiplier(comptime m1: type, comptime m2: type) type {
     const m1_DataType = @typeInfo(@typeInfo(meta.fieldInfo(m1, "data").field_type).Array.child).Array.child;
     const m2_DataType = @typeInfo(@typeInfo(meta.fieldInfo(m2, "data").field_type).Array.child).Array.child;
@@ -67,7 +67,7 @@ pub fn MatrixMultiplier(comptime m1: type, comptime m2: type) type {
     }
 
     if (m1.col_cnt != m2.row_cnt) {
-        @compileError("m1.col_cnt:" ++ m1.col_cnt ++ " != m2.row_cnt:" ++ m2.row_cnt);
+        @compileError("m1.col_cnt: m1.col_cnt != m2.row_cnt");
     }
     const DataType = m1_DataType;
     const row_cnt = m1.row_cnt;
