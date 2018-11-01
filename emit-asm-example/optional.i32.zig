@@ -26,7 +26,7 @@
 /// __unnamed_2 we see OptionalI32.val = 0 and OptionalI32.tag = 0.
 /// 
 ///   $ zig build-obj --output-h /dev/null --release-fast --strip --emit asm optional.i32.zig
-///   $ cat -n optional.i32.s
+///   $ cat -n oVptional.i32.s
 ///        1		.text
 ///        2		.file	"optional.i32"
 ///        3		.globl	entry
@@ -73,7 +73,47 @@
 ///       44	
 ///       45		.section	".note.GNU-stack","",@progbits
 
+/// Another way to get the output in intel mnemonics and with source code is:
+/// $ zig build-obj --release-fast emit-asm-example/optional.i32.zig && objdump --source -d -M intel optional.i32.o > emit-asm-example/optional.i32.src.s
+/// $ cat -n emit-asm-example/optional.i32.src.s 
+///      1	
+///      2	optional.i32.o:     file format elf64-x86-64
+///      3	
+///      4	
+///      5	Disassembly of section .text:
+///      6	
+///      7	0000000000000000 <entry>:
+///      8	/// A function or any other code you'd like to see the its asm.
+///      9	fn aFunc() i32 {
+///     10	    var pResult: *volatile ?i32 = &gResult;
+///     11	    var value: i32 = undefined;
+///     12	
+///     13	    pResult.* = 4;
+///     14	   0:	48 8b 05 00 00 00 00 	mov    rax,QWORD PTR [rip+0x0]        # 7 <entry+0x7>
+///     15	   7:	48 89 05 00 00 00 00 	mov    QWORD PTR [rip+0x0],rax        # e <entry+0xe>
+///     16	    value = if (pResult.* == null) math.minInt(i32) else pResult.*.?;
+///     17	   e:	80 3d 00 00 00 00 01 	cmp    BYTE PTR [rip+0x0],0x1        # 15 <entry+0x15>
+///     18	  15:	75 06                	jne    1d <entry+0x1d>
+///     19	  17:	8b 05 00 00 00 00    	mov    eax,DWORD PTR [rip+0x0]        # 1d <entry+0x1d>
+///     20	    assert(value == 4);
+///     21	    pResult.* = null;
+///     22	  1d:	48 8b 05 00 00 00 00 	mov    rax,QWORD PTR [rip+0x0]        # 24 <entry+0x24>
+///     23	  24:	48 89 05 00 00 00 00 	mov    QWORD PTR [rip+0x0],rax        # 2b <entry+0x2b>
+///     24	  2b:	b8 00 00 00 80       	mov    eax,0x80000000
+///     25	    value = if (pResult.* == null) math.minInt(i32) else pResult.*.?;
+///     26	  30:	80 3d 00 00 00 00 01 	cmp    BYTE PTR [rip+0x0],0x1        # 37 <entry+0x37>
+///     27	  37:	75 06                	jne    3f <entry+0x3f>
+///     28	  39:	8b 05 00 00 00 00    	mov    eax,DWORD PTR [rip+0x0]        # 3f <entry+0x3f>
+///     29	    return value;
+///     30	}
+///     31	
+///     32	/// An exported function otherwise no code is generated when build-obj
+///     33	export fn entry() i32 {
+///     34	    return aFunc();
+///     35	  3f:	c3                   	ret  
+
 const std = @import("std");
+const math = std.math;
 const assert = std.debug.assert;
 
 var gResult: ?i32 = undefined;
@@ -84,11 +124,11 @@ fn aFunc() i32 {
     var value: i32 = undefined;
 
     pResult.* = 4;
-    value = if (pResult.* == null) @minValue(i32) else pResult.*.?;
+    value = if (pResult.* == null) math.minInt(i32) else pResult.*.?;
     assert(value == 4);
     pResult.* = null;
-    value = if (pResult.* == null) @minValue(i32) else pResult.*.?;
-    assert(value == @minValue(i32));
+    value = if (pResult.* == null) math.minInt(i32) else pResult.*.?;
+    assert(value == math.minInt(i32));
     return value;
 }
 
@@ -123,5 +163,5 @@ pub fn panic(msg: []const u8, stack_trace: ?*@import("builtin").StackTrace) nore
 }
 
 test "test.optional.i32" {
-    assert(aFunc() == @minValue(i32));
+    assert(aFunc() == math.minInt(i32));
 }
