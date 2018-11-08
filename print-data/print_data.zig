@@ -2,9 +2,8 @@ const std = @import("std");
 const Queue = std.atomic.Queue;
 const warn = std.debug.warn;
 
-
 test "print_data" {
-    const S = struct {
+    const S = struct.{
         const Self = @This();
 
         b1: u1,
@@ -12,7 +11,7 @@ test "print_data" {
         ai: []u8,
 
         /// Custom format routine for S
-        pub fn format(self: *Self,
+        pub fn format(self: *const Self,
             comptime fmt: []const u8,
             context: var,
             comptime FmtError: type,
@@ -30,9 +29,9 @@ test "print_data" {
     var a = "abcdef";
     warn("&a={*} a={}\n", &a, a);
 
-    var s = S {.b1=1, .i=123, .ai=a[0..2]};
+    var s = S.{.b1=1, .i=123, .ai=a[0..2]};
     warn("s = S {*}\n", &s);
-    //warn("s = S {}\n", &s);
+    warn("s = S {}\n", &s);
     warn("s.b1={}\n", s.b1);
     warn("s.i={}\n", s.i);
     warn("s.ai={}\n", s.ai);
@@ -48,7 +47,7 @@ test "print_data" {
     var da = std.heap.DirectAllocator.init();
     defer da.deinit();
     var allocator = &da.allocator;
-    var node: *Q.Node = try allocator.create(Q.Node {
+    var node: *Q.Node = try allocator.create(Q.Node.{
             .data=1,
             .next=undefined,
             .prev=undefined,
@@ -57,14 +56,14 @@ test "print_data" {
     q.put(node);
     q.dump();
 
-    var node0 = Q.Node {
+    var node0 = Q.Node.{
         .data = 123,
         .next = undefined,
         .prev = undefined,
     };
     q.put(&node0);
     q.dump();
-    var node1 = Q.Node {
+    var node1 = Q.Node.{
         .data = 456,
         .next = undefined,
         .prev = undefined,
@@ -73,9 +72,9 @@ test "print_data" {
     q.dump();
 
     
-    var b = []Q.Node {
-        Q.Node { .data = 789, .next = undefined, .prev = undefined },
-        Q.Node { .data = 012, .next = undefined, .prev = undefined },
+    var b = []Q.Node.{
+        Q.Node.{ .data = 789, .next = undefined, .prev = undefined },
+        Q.Node.{ .data = 012, .next = undefined, .prev = undefined },
     };
     q.put(&b[0]);
     q.dump();
