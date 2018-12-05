@@ -134,3 +134,37 @@ $ cat -n floattoint.s
     64	
     65		.section	".note.GNU-stack","",%progbits
 ```
+
+# Tests
+
+Current test "broken" is skipped because it causes compiler to segfault.
+If the compiler is fixed or my [PR #1817](https://github.com/ziglang/zig/pull/1817) is
+accepted it can be enabled.
+```
+zig test floattoint
+```
+$ zig test floattoint.zig
+Test 1/3 floattoint...OK
+Test 2/3 broken...SKIP
+Test 3/3 workaround...OK
+2 passed; 1 skipped.
+```
+The diff between broken and workaround is:
+```
+$ diff -Naur fixuint_u1_broken.zig fixuint_u1_workaround.zig
+--- fixuint_u1_broken.zig	2018-12-05 10:30:33.790147403 -0800
++++ fixuint_u1_workaround.zig	2018-12-05 10:31:55.914936362 -0800
+@@ -4,6 +4,12 @@
+ pub fn fixuint(comptime fp_t: type, comptime fixuint_t: type, a: fp_t) fixuint_t {
+     @setRuntimeSafety(is_test);
+ 
++    // Special case u1 otherwise compiler segfaults
++    switch (fixuint_t) {
++        u1 => return if (a <= 0.0) return fixuint_t(0) else fixuint_t(1),
++        else => {},
++    }
++
+     const rep_t = switch (fp_t) {
+         f32 => u32,
+         f64 => u64,
+```
