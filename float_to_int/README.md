@@ -1,5 +1,9 @@
 # Testing generated code for @floatToInt
 
+## FIXED
+Andrew fixed with [this](https://github.com/ziglang/zig/commit/f330eebe4bc6a036846cf05706f72855627c705a).
+
+## Old info
 The Makefile takes floattoint.zig and converts it to assembler code.
 To force zig to generate code we must `export` a function,
 `export fn floattoint() bool` in this case.
